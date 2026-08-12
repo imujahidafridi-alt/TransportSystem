@@ -13,6 +13,7 @@ function createWindow(): void {
     minWidth: 1024,
     minHeight: 700,
     title: 'Transport Management & Fleet Operations',
+    icon: path.join(__dirname, '../renderer/assets/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
