@@ -63,13 +63,22 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('salaries:update-status', (_, { id, status, date }) =>
     salaryService.updateSalaryStatus(id, status, date)
   );
-  ipcMain.handle('salaries:generate-draft', (_, { period, createdBy }) =>
-    salaryService.generatePayrollDraftForPeriod(period, createdBy)
+  ipcMain.handle('salaries:generate-draft', (_, { period, ratePerTrip, createdBy }) =>
+    salaryService.generatePayrollDraftForPeriod(period, ratePerTrip, createdBy)
+  );
+  ipcMain.handle('salaries:update-trip-rate', (_, { id, ratePerTrip }) =>
+    salaryService.updateDriverTripRate(id, ratePerTrip)
+  );
+  ipcMain.handle('salaries:batch-update-trip-rate', (_, { period, ratePerTrip }) =>
+    salaryService.batchUpdateTripRate(period, ratePerTrip)
   );
   ipcMain.handle('salaries:finalize', (_, { period, salaryRecordIds, finalizedBy }) =>
     salaryService.finalizePayrollForPeriod(period, salaryRecordIds, finalizedBy)
   );
-  ipcMain.handle('salaries:mark-paid', (_, payload) => salaryService.markSalariesPaid(payload));
+  ipcMain.handle('salaries:get-by-id', (_, id: string) => salaryService.getSalaryById(id));
+  ipcMain.handle('salaries:get-adjustments', (_, salaryRecordId: string) =>
+    salaryService.getSalaryAdjustments(salaryRecordId)
+  );
   ipcMain.handle('salaries:add-adjustment', (_, data) => salaryService.addSalaryAdjustment(data));
   ipcMain.handle('salaries:delete-adjustment', (_, id: string) => salaryService.deleteSalaryAdjustment(id));
   ipcMain.handle('salaries:master-summary', (_, period: string) =>

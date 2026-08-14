@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS driver_salary_records (
   salary_period TEXT NOT NULL,
   basic_salary REAL NOT NULL DEFAULT 0,
   total_trips INTEGER NOT NULL DEFAULT 0,
+  rate_per_trip REAL NOT NULL DEFAULT 0,
   trip_earnings REAL NOT NULL DEFAULT 0,
   allowances REAL NOT NULL DEFAULT 0,
   deductions REAL NOT NULL DEFAULT 0,

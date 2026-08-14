@@ -17,9 +17,15 @@ import {
   AlertCircle,
   Edit3,
   Trash2,
-  Calendar,
   CheckSquare,
   Square,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
+  Award,
+  Wallet,
+  Calculator,
+  DollarSign,
 } from 'lucide-react';
 import { useKeyboardShortcuts } from '../context/KeyboardShortcutContext';
 import { SearchBox } from '../components/common/SearchBox';
@@ -36,6 +42,11 @@ export const DriverSalariesPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'DRAFT' | 'FINALIZED' | 'PAID' | 'PENDING'>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [masterSummary, setMasterSummary] = useState<MasterPayrollSummary | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Month-End Decided Rate per Trip State
+  const [isDraftRateModalOpen, setIsDraftRateModalOpen] = useState(false);
+  const [monthTripRate, setMonthTripRate] = useState<number | ''>(60);
 
   // Modals state
   const [isSingleModalOpen, setIsSingleModalOpen] = useState(false);
@@ -43,6 +54,11 @@ export const DriverSalariesPage: React.FC = () => {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const [selectedSalaryForAdj, setSelectedSalaryForAdj] = useState<DriverSalaryRecord | null>(null);
+
+  // Single Driver Rate Edit State
+  const [isDriverRateModalOpen, setIsDriverRateModalOpen] = useState(false);
+  const [selectedSalaryForRate, setSelectedSalaryForRate] = useState<DriverSalaryRecord | null>(null);
+  const [individualTripRate, setIndividualTripRate] = useState<number | ''>(60);
 
   // Payment Form State
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
@@ -59,6 +75,7 @@ export const DriverSalariesPage: React.FC = () => {
   const [driverId, setDriverId] = useState('');
   const [basicSalary, setBasicSalary] = useState<number | ''>('');
   const [totalTrips, setTotalTrips] = useState<number>(0);
+  const [singleRatePerTrip, setSingleRatePerTrip] = useState<number | ''>(60);
   const [tripEarnings, setTripEarnings] = useState<number | ''>('');
   const [allowances, setAllowances] = useState<number | ''>('');
   const [deductions, setDeductions] = useState<number | ''>('');
@@ -72,7 +89,7 @@ export const DriverSalariesPage: React.FC = () => {
     const unregNew = registerAction(
       'NEW_RECORD',
       () => {
-        setIsSingleModalOpen(true);
+        handleOpenManualEntry();
       },
       'salaries'
     );
@@ -110,15 +127,59 @@ export const DriverSalariesPage: React.FC = () => {
     loadData();
   }, [salaryPeriod]);
 
-  // Recalculate trip allowance when single driver or period changes
+  // Quick 1-Click Month Navigation
+  const navigateMonth = (direction: -1 | 1) => {
+    const [year, month] = salaryPeriod.split('-').map(Number);
+    const date = new Date(year, month - 1 + direction, 1);
+    const nextPeriod = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    setSalaryPeriod(nextPeriod);
+  };
+
+  // Formatted Period Title (e.g. "August 2026")
+  const formattedPeriodTitle = useMemo(() => {
+    try {
+      const [year, month] = salaryPeriod.split('-').map(Number);
+      const date = new Date(year, month - 1, 1);
+      return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+    } catch {
+      return salaryPeriod;
+    }
+  }, [salaryPeriod]);
+
+  // Recalculate and auto-populate all existing data when driver or period changes
   const fetchDriverPayrollDetails = async (selectedDriverId: string, period: string) => {
     if (!selectedDriverId || !window.electronAPI) return;
     try {
+      // 1. Check if a salary record already exists in current loaded salaries state
+      const existing = salaries.find(
+        (s) => s.driverId === selectedDriverId && s.salaryPeriod === period
+      );
+
+      const d = drivers.find((drv) => drv.id === selectedDriverId);
       const res = await window.electronAPI.calculateDriverPayroll(selectedDriverId, period);
-      setBasicSalary(res.basicSalary !== 0 ? res.basicSalary : '');
-      setTotalTrips(res.completedTrips || 0);
-      setTripEarnings(res.tripEarnings !== 0 ? res.tripEarnings : '');
-      setAllowances(res.allowances !== 0 ? res.allowances : '');
+
+      if (existing) {
+        setBasicSalary(existing.basicSalary !== 0 ? existing.basicSalary : (d?.basicSalary || ''));
+        const trips = existing.totalTrips !== undefined ? existing.totalTrips : (res.completedTrips || 0);
+        setTotalTrips(trips);
+        const rate = existing.ratePerTrip !== undefined && existing.ratePerTrip > 0
+          ? existing.ratePerTrip
+          : (existing.perTripRate || res.ratePerTrip || d?.perTripRate || 60);
+        setSingleRatePerTrip(rate);
+        setTripEarnings(existing.tripEarnings !== undefined && existing.tripEarnings > 0 ? existing.tripEarnings : trips * rate);
+        setAllowances(existing.allowances > 0 ? existing.allowances : '');
+        setDeductions(existing.deductions > 0 ? existing.deductions : '');
+        setAdvance(existing.advance > 0 ? existing.advance : '');
+      } else {
+        setBasicSalary(res.basicSalary !== 0 ? res.basicSalary : (d?.basicSalary || ''));
+        setTotalTrips(res.completedTrips || 0);
+        const rate = res.ratePerTrip !== undefined && res.ratePerTrip > 0 ? res.ratePerTrip : (d?.perTripRate || 60);
+        setSingleRatePerTrip(rate);
+        setTripEarnings((res.completedTrips || 0) * rate);
+        setAllowances('');
+        setDeductions('');
+        setAdvance('');
+      }
     } catch (err) {
       console.error('Failed to calculate driver payroll:', err);
     }
@@ -130,19 +191,65 @@ export const DriverSalariesPage: React.FC = () => {
     }
   }, [driverId, salaryPeriod, isSingleModalOpen]);
 
+  const handleOpenManualEntry = (selectedDId?: string) => {
+    const targetDriverId = selectedDId || driverId || (drivers.length > 0 ? drivers[0].id : '');
+    if (targetDriverId) {
+      setDriverId(targetDriverId);
+      fetchDriverPayrollDetails(targetDriverId, salaryPeriod);
+    }
+    setIsSingleModalOpen(true);
+  };
+
   const handleDriverChange = (dId: string) => {
     setDriverId(dId);
     fetchDriverPayrollDetails(dId, salaryPeriod);
   };
 
-  // 1. Batch Generate Payroll Draft
-  const handleGenerateDraft = async () => {
+  // Update trip earnings in manual modal when singleRatePerTrip changes
+  const handleSingleRateChange = (rateVal: number | '') => {
+    setSingleRatePerTrip(rateVal);
+    const rate = Number(rateVal) || 0;
+    setTripEarnings(totalTrips * rate);
+  };
+
+  // 1. Batch Generate / Update Payroll Draft With Decided Rate per Trip
+  const handleApplyMonthTripRate = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!window.electronAPI) return;
-    await window.electronAPI.generatePayrollDraft(salaryPeriod, 'Admin');
+    setIsGenerating(true);
+    try {
+      if (salaries.length === 0) {
+        await window.electronAPI.generatePayrollDraft(salaryPeriod, Number(monthTripRate || 0), 'Admin');
+      } else {
+        await window.electronAPI.batchUpdateTripRate(salaryPeriod, Number(monthTripRate || 0));
+      }
+      setIsDraftRateModalOpen(false);
+      await loadData();
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // 2. Individual Driver Trip Rate Update
+  const handleOpenDriverRateModal = (s: DriverSalaryRecord) => {
+    setSelectedSalaryForRate(s);
+    const impliedRate = s.ratePerTrip !== undefined && s.ratePerTrip > 0
+      ? s.ratePerTrip
+      : (s.totalTrips && s.totalTrips > 0 && s.tripEarnings ? Math.round(s.tripEarnings / s.totalTrips) : 60);
+    setIndividualTripRate(impliedRate);
+    setIsDriverRateModalOpen(true);
+  };
+
+  const handleSaveDriverRate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSalaryForRate || !window.electronAPI) return;
+
+    await window.electronAPI.updateSalaryTripRate(selectedSalaryForRate.id, Number(individualTripRate || 0));
+    setIsDriverRateModalOpen(false);
     await loadData();
   };
 
-  // 2. Batch Finalize Payroll
+  // 3. Batch Finalize Payroll
   const handleFinalizeConfirm = async () => {
     if (!window.electronAPI) return;
     const idsToFinalize = selectedIds.length > 0 ? selectedIds : undefined;
@@ -151,7 +258,7 @@ export const DriverSalariesPage: React.FC = () => {
     await loadData();
   };
 
-  // 3. Batch Mark as Paid
+  // 4. Batch Mark as Paid
   const handlePayConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!window.electronAPI) return;
@@ -175,13 +282,22 @@ export const DriverSalariesPage: React.FC = () => {
     await loadData();
   };
 
-  // 4. Audited Adjustment Handlers
-  const handleOpenAdjustment = (s: DriverSalaryRecord) => {
+  // 5. Audited Adjustment Handlers
+  const handleOpenAdjustment = async (s: DriverSalaryRecord) => {
     setSelectedSalaryForAdj(s);
     setAdjType('ADVANCE');
     setAdjAmount('');
     setAdjReason('');
     setIsAdjustmentModalOpen(true);
+
+    if (window.electronAPI?.getSalaryAdjustments) {
+      try {
+        const adjs = await window.electronAPI.getSalaryAdjustments(s.id);
+        setSelectedSalaryForAdj((prev) => (prev && prev.id === s.id ? { ...prev, adjustments: adjs } : prev));
+      } catch (err) {
+        console.error('Failed to load adjustments for modal:', err);
+      }
+    }
   };
 
   const handleAddAdjustment = async (e: React.FormEvent) => {
@@ -196,7 +312,8 @@ export const DriverSalariesPage: React.FC = () => {
         reason: adjReason.trim(),
         createdBy: 'Admin',
       });
-      setSelectedSalaryForAdj(updated);
+      const freshAdjs = await window.electronAPI.getSalaryAdjustments(selectedSalaryForAdj.id);
+      setSelectedSalaryForAdj({ ...updated, adjustments: freshAdjs });
       setAdjAmount('');
       setAdjReason('');
       await loadData();
@@ -209,12 +326,12 @@ export const DriverSalariesPage: React.FC = () => {
     if (!selectedSalaryForAdj || !window.electronAPI) return;
     try {
       await window.electronAPI.deleteSalaryAdjustment(adjId);
-      const updatedSalaries = await window.electronAPI.getSalaries({ period: salaryPeriod });
-      const current = updatedSalaries.find((s: DriverSalaryRecord) => s.id === selectedSalaryForAdj.id);
-      if (current) setSelectedSalaryForAdj(current);
-      setSalaries(updatedSalaries);
-      const sumRes = await window.electronAPI.getMasterPayrollSummary(salaryPeriod);
-      setMasterSummary(sumRes);
+      const freshAdjs = await window.electronAPI.getSalaryAdjustments(selectedSalaryForAdj.id);
+      const freshSalary = await window.electronAPI.getSalaryById(selectedSalaryForAdj.id);
+      if (freshSalary) {
+        setSelectedSalaryForAdj({ ...freshSalary, adjustments: freshAdjs });
+      }
+      await loadData();
     } catch (err: any) {
       alert(err?.message || 'Failed to delete adjustment.');
     }
@@ -236,6 +353,7 @@ export const DriverSalariesPage: React.FC = () => {
       salaryPeriod,
       basicSalary: Number(basicSalary || 0),
       totalTrips,
+      ratePerTrip: Number(singleRatePerTrip || 0),
       tripEarnings: Number(tripEarnings || 0),
       allowances: Number(allowances || 0),
       deductions: Number(deductions || 0),
@@ -254,11 +372,15 @@ export const DriverSalariesPage: React.FC = () => {
         endDate: `${s.salaryPeriod}-31`,
       });
 
+      const rate = s.ratePerTrip !== undefined && s.ratePerTrip > 0
+        ? s.ratePerTrip
+        : ((s.totalTrips && s.totalTrips > 0 && s.tripEarnings) ? Math.round(s.tripEarnings / s.totalTrips) : 60);
+
       const formattedTrips = (tRes || []).map((t: any) => ({
         date: t.date,
         transportNo: t.transportNo,
         fromTo: `${t.fromLocationName || 'Origin'} → ${t.toLocationName || 'Destination'}`,
-        commission: t.driverAllowance || 0,
+        commission: rate,
       }));
 
       window.electronAPI.openDriverLedgerPdfPreview({
@@ -310,6 +432,9 @@ export const DriverSalariesPage: React.FC = () => {
       );
     });
   }, [salaries, statusFilter, search]);
+
+  const hasDrafts = (masterSummary?.draftCount || 0) > 0;
+  const hasRecords = salaries.length > 0;
 
   const columns: Column<DriverSalaryRecord>[] = [
     {
@@ -364,39 +489,74 @@ export const DriverSalariesPage: React.FC = () => {
     },
     {
       key: 'tripEarnings',
-      header: 'Completed Trips & Earnings',
+      header: 'Completed Trips & Rate Decision',
       align: 'right',
-      className: 'font-mono text-sky-700 font-bold',
-      render: (s) => (
-        <div className="text-right">
-          <span className="block text-xs font-bold text-sky-800">
-            +AED {(s.tripEarnings || 0).toLocaleString()}
-          </span>
-          <span className="text-[10px] text-slate-500 font-normal">
-            {s.totalTrips || 0} completed trips
-          </span>
-        </div>
-      ),
+      className: 'font-mono',
+      render: (s) => {
+        const rate = s.ratePerTrip !== undefined && s.ratePerTrip > 0
+          ? s.ratePerTrip
+          : (s.totalTrips && s.totalTrips > 0 && s.tripEarnings ? Math.round(s.tripEarnings / s.totalTrips) : 0);
+        const isDraft = s.paymentStatus === 'DRAFT';
+        const hasTrips = (s.totalTrips || 0) > 0;
+
+        return (
+          <div className="text-right">
+            <span className={`block text-xs font-black font-mono ${hasTrips ? 'text-sky-800' : 'text-slate-400'}`}>
+              {hasTrips && (s.tripEarnings || 0) > 0 ? `+AED ${(s.tripEarnings || 0).toLocaleString()}` : '+AED 0'}
+            </span>
+            <div className="flex items-center justify-end gap-1.5 text-[10px] text-slate-500">
+              <span className="font-bold">{s.totalTrips || 0} trips</span>
+              {isDraft ? (
+                <button
+                  type="button"
+                  onClick={() => handleOpenDriverRateModal(s)}
+                  className="px-2 py-0.5 rounded-lg bg-sky-50 text-sky-700 font-black hover:bg-sky-100 transition border border-sky-200 shadow-2xs cursor-pointer"
+                  title="Click to decide/change this driver's month-end trip rate"
+                >
+                  {rate > 0 ? `@AED ${rate}/trip ✏️` : 'Set Rate ✏️'}
+                </button>
+              ) : (
+                rate > 0 && <span className="text-slate-400 font-mono">(@AED {rate}/trip)</span>
+              )}
+            </div>
+          </div>
+        );
+      },
     },
     {
-      key: 'allowances',
-      header: 'Allowances / Bonus',
+      key: 'adjustments',
+      header: 'Audited Adjustments',
       align: 'right',
-      className: 'font-mono text-emerald-600',
-      render: (s) => `+AED ${s.allowances.toLocaleString()}`,
-    },
-    {
-      key: 'deductions',
-      header: 'Deductions & Advance',
-      align: 'right',
-      className: 'font-mono text-rose-600',
-      render: (s) => (
-        <div className="text-right">
-          {s.advance > 0 && <span className="block text-xs font-bold text-amber-600">-AED {s.advance.toLocaleString()} (Adv)</span>}
-          {s.deductions > 0 && <span className="block text-[11px] text-rose-600">-AED {s.deductions.toLocaleString()} (Ded)</span>}
-          {s.advance === 0 && s.deductions === 0 && <span className="text-slate-400">-</span>}
-        </div>
-      ),
+      className: 'font-mono',
+      render: (s) => {
+        const hasBonus = (s.allowances || 0) > 0;
+        const hasAdv = (s.advance || 0) > 0;
+        const hasDed = (s.deductions || 0) > 0;
+
+        if (!hasBonus && !hasAdv && !hasDed) {
+          return <span className="text-slate-300 font-mono">-</span>;
+        }
+
+        return (
+          <div className="text-right space-y-0.5">
+            {hasBonus && (
+              <span className="block text-xs font-bold text-emerald-600">
+                +AED {s.allowances.toLocaleString()} (Bonus)
+              </span>
+            )}
+            {hasAdv && (
+              <span className="block text-xs font-bold text-amber-600">
+                -AED {s.advance.toLocaleString()} (Adv)
+              </span>
+            )}
+            {hasDed && (
+              <span className="block text-[11px] font-bold text-rose-600">
+                -AED {s.deductions.toLocaleString()} (Ded)
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'netSalary',
@@ -469,62 +629,106 @@ export const DriverSalariesPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-4">
-      {/* 1. Master Monthly Summary KPI Dashboard Strip */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-3.5 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3">
+      {/* 1. Top Master Period & Dynamic Action Dashboard Strip */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-4 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3.5">
+          {/* Quick Month Selector */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center border border-violet-200 shrink-0">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Payroll Period
-              </span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="month"
-                  value={salaryPeriod}
-                  onChange={(e) => setSalaryPeriod(e.target.value)}
-                  className="h-8.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 focus:border-violet-600 focus:bg-white rounded-lg px-2.5 text-xs font-mono font-bold text-slate-900 focus:outline-none transition"
-                />
-                <span className="text-xs font-semibold text-slate-600">
-                  {masterSummary?.workingDrivers || 0} active drivers worked ({masterSummary?.completedTrips || 0} completed trips)
+            <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/70">
+              <button
+                type="button"
+                onClick={() => navigateMonth(-1)}
+                className="w-7 h-7 rounded-lg bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 shadow-2xs transition"
+                title="Previous Month"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <div className="px-2.5 py-0.5 text-center">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Payroll Period
+                </span>
+                <span className="text-xs font-black text-slate-900 tracking-tight block">
+                  {formattedPeriodTitle}
                 </span>
               </div>
+
+              <button
+                type="button"
+                onClick={() => navigateMonth(1)}
+                className="w-7 h-7 rounded-lg bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 shadow-2xs transition"
+                title="Next Month"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="month"
+                value={salaryPeriod}
+                onChange={(e) => setSalaryPeriod(e.target.value)}
+                className="h-8.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 focus:border-violet-600 focus:bg-white rounded-lg px-2.5 text-xs font-mono font-bold text-slate-800 focus:outline-none transition shadow-2xs cursor-pointer"
+                title="Select Specific Month & Year"
+              />
+              <span className="text-xs font-semibold text-slate-600 hidden sm:inline">
+                {masterSummary?.workingDrivers || 0} active drivers worked ({masterSummary?.completedTrips || 0} completed trips)
+              </span>
             </div>
           </div>
 
-          {/* Top Primary Batch Action Buttons */}
+          {/* Context-Aware Dynamic Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              onClick={handleGenerateDraft}
-              variant="outline"
-              icon={<Sparkles className="w-4 h-4 text-violet-600" />}
-              title="Auto-scan completed trips & allowances and prepare draft payroll"
-            >
-              Prepare Payroll Draft
-            </Button>
+            {!hasRecords ? (
+              <Button
+                onClick={() => setIsDraftRateModalOpen(true)}
+                isLoading={isGenerating}
+                variant="primary"
+                icon={<Sparkles className="w-4 h-4 text-white" />}
+                className="btn-primary-gradient"
+                title="Decide per-trip rate and prepare monthly payroll draft"
+              >
+                Prepare {formattedPeriodTitle} Draft
+              </Button>
+            ) : hasDrafts ? (
+              <>
+                <Button
+                  onClick={() => setIsFinalizeModalOpen(true)}
+                  variant="primary"
+                  icon={<Lock className="w-4 h-4 text-white" />}
+                  title="Lock drafted payroll into immutable historical snapshot"
+                >
+                  Finalize Payroll ({masterSummary?.draftCount} Drafts)
+                </Button>
 
-            <Button
-              onClick={() => setIsFinalizeModalOpen(true)}
-              variant="secondary"
-              icon={<Lock className="w-4 h-4 text-indigo-600" />}
-              title="Lock drafted payroll into immutable historical snapshot"
-            >
-              Finalize Payroll
-            </Button>
+                <Button
+                  onClick={() => setIsDraftRateModalOpen(true)}
+                  isLoading={isGenerating}
+                  variant="outline"
+                  size="sm"
+                  icon={<DollarSign className="w-4 h-4 text-violet-600" />}
+                  title="Decide baseline trip rate for all draft drivers in this month"
+                >
+                  Decide Month Trip Rate
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => setIsPayModalOpen(true)}
+                variant="primary"
+                icon={<CreditCard className="w-4 h-4 text-white" />}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                title="Disburse payments and record WPS / Bank Transfer audit metadata"
+              >
+                {selectedIds.length > 0
+                  ? `Mark ${selectedIds.length} Selected Paid`
+                  : `Mark ${masterSummary?.finalizedCount || 0} Finalized as Paid`}
+              </Button>
+            )}
 
+            {/* Manual Entry Secondary Option */}
             <Button
-              onClick={() => setIsPayModalOpen(true)}
-              variant="primary"
-              icon={<CreditCard className="w-4 h-4 text-white" />}
-              title="Disburse payments and record WPS / Bank Transfer audit metadata"
-            >
-              {selectedIds.length > 0 ? `Mark ${selectedIds.length} Selected Paid` : 'Mark Eligible as Paid'}
-            </Button>
-
-            <Button
-              onClick={() => setIsSingleModalOpen(true)}
+              onClick={() => handleOpenManualEntry()}
               variant="outline"
               size="sm"
               icon={<Plus className="w-4 h-4" />}
@@ -535,76 +739,134 @@ export const DriverSalariesPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Financial KPI Numbers Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-0.5 text-xs">
-          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Base Salaries
-            </span>
-            <span className="font-mono font-bold text-slate-800 text-sm">
-              AED {(masterSummary?.totalBasicSalary || 0).toLocaleString()}
-            </span>
+        {/* 2. Redesigned Financial KPI Metric Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+          {/* Base Salaries */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl flex flex-col justify-between shadow-2xs">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Base Salaries
+              </span>
+              <div className="w-6 h-6 rounded-lg bg-slate-200/70 text-slate-600 flex items-center justify-center">
+                <Wallet className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div>
+              <span className="font-mono font-black text-slate-900 text-base block">
+                AED {(masterSummary?.totalBasicSalary || 0).toLocaleString()}
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium">Contracted base pay</span>
+            </div>
           </div>
 
-          <div className="p-3 bg-sky-50/70 border border-sky-200/70 rounded-xl">
-            <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider block">
-              Trip Earnings
-            </span>
-            <span className="font-mono font-bold text-sky-900 text-sm">
-              +AED {(masterSummary?.totalTripEarnings || 0).toLocaleString()}
-            </span>
+          {/* + Trip Earnings */}
+          <div className="p-3.5 bg-sky-50/70 border border-sky-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider flex items-center gap-1">
+                <span>+</span> Trip Earnings
+              </span>
+              <div className="w-6 h-6 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center">
+                <Truck className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div>
+              <span className="font-mono font-black text-sky-950 text-base block">
+                +AED {(masterSummary?.totalTripEarnings || 0).toLocaleString()}
+              </span>
+              <span className="text-[10px] text-sky-600 font-medium">
+                {masterSummary?.completedTrips || 0} completed trips
+              </span>
+            </div>
           </div>
 
-          <div className="p-3 bg-emerald-50/70 border border-emerald-200/70 rounded-xl">
-            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
-              Trip Allowances
-            </span>
-            <span className="font-mono font-bold text-emerald-900 text-sm">
-              +AED {(masterSummary?.totalAllowances || 0).toLocaleString()}
-            </span>
+          {/* + Audited Bonuses */}
+          <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1">
+                <span>+</span> Audited Bonuses
+              </span>
+              <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <Award className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div>
+              <span className="font-mono font-black text-emerald-950 text-base block">
+                +AED {(masterSummary?.totalAllowances || 0).toLocaleString()}
+              </span>
+              <span className="text-[10px] text-emerald-600 font-medium">Rewards & incentives</span>
+            </div>
           </div>
 
-          <div className="p-3 bg-rose-50/70 border border-rose-200/70 rounded-xl">
-            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
-              Deductions / Advances
-            </span>
-            <span className="font-mono font-bold text-rose-900 text-sm">
-              -AED {((masterSummary?.totalDeductions || 0) + (masterSummary?.totalAdvances || 0)).toLocaleString()}
-            </span>
+          {/* - Deductions / Advances */}
+          <div className="p-3.5 bg-rose-50/70 border border-rose-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider flex items-center gap-1">
+                <span>-</span> Advances & Deductions
+              </span>
+              <div className="w-6 h-6 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
+                <TrendingUp className="w-3.5 h-3.5 rotate-180" />
+              </div>
+            </div>
+            <div>
+              <span className="font-mono font-black text-rose-950 text-base block">
+                -AED {((masterSummary?.totalDeductions || 0) + (masterSummary?.totalAdvances || 0)).toLocaleString()}
+              </span>
+              <span className="text-[10px] text-rose-600 font-medium">Cash advances & fines</span>
+            </div>
           </div>
 
-          <div className="p-3 bg-violet-50/80 border border-violet-200/80 rounded-xl col-span-2 md:col-span-1">
-            <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wider block">
-              Total Net Payable
-            </span>
-            <span className="font-mono font-black text-violet-950 text-base">
-              AED {(masterSummary?.totalNetPayable || 0).toLocaleString()}
-            </span>
+          {/* = Total Net Payable Hero Card */}
+          <div className="p-3.5 bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-2xl flex flex-col justify-between col-span-2 lg:col-span-1 shadow-md">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold text-violet-200 uppercase tracking-wider">
+                Total Net Payable
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white">
+                {masterSummary?.paidCount || 0} Paid · {(masterSummary?.draftCount || 0) + (masterSummary?.finalizedCount || 0)} Pending
+              </span>
+            </div>
+            <div>
+              <span className="font-mono font-black text-white text-lg block">
+                AED {(masterSummary?.totalNetPayable || 0).toLocaleString()}
+              </span>
+              <span className="text-[10px] text-violet-200 font-medium">
+                {salaries.length} rostered drivers
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 2. Filter Tabs & Search Bar */}
+      {/* 3. Filter Tabs & Search Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 text-xs">
+        <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 text-xs">
           {[
-            { id: 'ALL', label: `All (${salaries.length})` },
-            { id: 'DRAFT', label: `Draft (${masterSummary?.draftCount || 0})` },
-            { id: 'FINALIZED', label: `Finalized (${masterSummary?.finalizedCount || 0})` },
-            { id: 'PAID', label: `Paid (${masterSummary?.paidCount || 0})` },
-            { id: 'PENDING', label: `Pending Payout (${(masterSummary?.draftCount || 0) + (masterSummary?.finalizedCount || 0)})` },
+            { id: 'ALL', label: 'All', count: salaries.length },
+            { id: 'DRAFT', label: 'Draft', count: masterSummary?.draftCount || 0 },
+            { id: 'FINALIZED', label: 'Finalized', count: masterSummary?.finalizedCount || 0 },
+            { id: 'PAID', label: 'Paid', count: masterSummary?.paidCount || 0 },
+            { id: 'PENDING', label: 'Pending Payout', count: (masterSummary?.draftCount || 0) + (masterSummary?.finalizedCount || 0) },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id as any)}
-              className={`px-3 py-1.5 rounded-lg font-bold transition ${
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
                 statusFilter === tab.id
                   ? 'bg-white text-violet-700 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {tab.label}
+              <span>{tab.label}</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                  statusFilter === tab.id
+                    ? 'bg-violet-100 text-violet-800'
+                    : 'bg-slate-200/80 text-slate-600'
+                }`}
+              >
+                {tab.count}
+              </span>
             </button>
           ))}
         </div>
@@ -618,13 +880,167 @@ export const DriverSalariesPage: React.FC = () => {
         />
       </div>
 
-      {/* 3. Main Data Table */}
+      {/* 4. Main Data Table with Rich Guided Empty State */}
       <DataTable
         columns={columns}
         data={filteredSalaries}
         keyExtractor={(s) => s.id}
-        emptyMessage={`No payroll records found for ${salaryPeriod}. Click "Prepare Payroll Draft" to generate.`}
+        emptyState={
+          <div className="py-12 px-4 flex flex-col items-center justify-center text-center space-y-3.5 max-w-md mx-auto select-none animate-in fade-in duration-200">
+            <div className="w-16 h-16 rounded-3xl bg-violet-50 border border-violet-100 flex items-center justify-center text-violet-600 shadow-sm">
+              <Calculator className="w-8 h-8 text-violet-600" />
+            </div>
+
+            <div>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">
+                No Payroll Draft for {formattedPeriodTitle}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                Count all completed transports in {formattedPeriodTitle}, decide month-end trip rates per driver, and generate the draft in 1 click.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <Button
+                onClick={() => setIsDraftRateModalOpen(true)}
+                isLoading={isGenerating}
+                variant="primary"
+                icon={<Sparkles className="w-4 h-4 text-white" />}
+                className="btn-primary-gradient"
+              >
+                Prepare {formattedPeriodTitle} Payroll Draft
+              </Button>
+              <Button
+                onClick={() => handleOpenManualEntry()}
+                variant="secondary"
+                size="sm"
+                icon={<Plus className="w-4 h-4" />}
+              >
+                Manual Entry
+              </Button>
+            </div>
+          </div>
+        }
       />
+
+      {/* MODAL 0: Month-End Baseline Rate Decider */}
+      <Modal
+        isOpen={isDraftRateModalOpen}
+        onClose={() => setIsDraftRateModalOpen(false)}
+        title={`⚡ Decide Month-End Trip Rate: ${formattedPeriodTitle}`}
+        maxWidth="md"
+      >
+        <form onSubmit={handleApplyMonthTripRate} className="space-y-4 text-xs">
+          <div className="p-3.5 bg-violet-50 border border-violet-200 rounded-2xl space-y-1.5">
+            <span className="font-bold text-violet-950 text-xs block">
+              {formattedPeriodTitle} Activity Overview
+            </span>
+            <div className="flex justify-between font-mono text-slate-700">
+              <span className="font-sans text-slate-600">Active Drivers Worked:</span>
+              <span className="font-bold">{masterSummary?.workingDrivers || 0} Drivers</span>
+            </div>
+            <div className="flex justify-between font-mono text-slate-700">
+              <span className="font-sans text-slate-600">Total Completed Transports:</span>
+              <span className="font-extrabold text-violet-800 text-sm">
+                {masterSummary?.completedTrips || 0} Trips
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1.5">
+              Decided Rate per Trip for {formattedPeriodTitle} (AED)
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                value={monthTripRate}
+                onChange={(e) => setMonthTripRate(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="e.g. 75"
+                className="h-11 w-full bg-white border border-slate-300 focus:border-violet-600 focus:ring-2 focus:ring-violet-500/20 rounded-2xl px-4 text-sm font-mono font-black text-slate-900 focus:outline-none transition shadow-2xs"
+                required
+                autoFocus
+              />
+              <span className="absolute right-4 top-3 text-xs font-bold text-slate-400 font-mono">
+                AED / Trip
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-500 mt-1 block">
+              Applies to all draft drivers for this month. You can also customize individual driver rates after.
+            </span>
+          </div>
+
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 flex items-center justify-between font-mono">
+            <span className="font-sans text-[11px]">Estimated Trip Earnings ({masterSummary?.completedTrips || 0} trips):</span>
+            <span className="font-extrabold text-sky-800 text-sm">
+              +AED {((masterSummary?.completedTrips || 0) * (Number(monthTripRate) || 0)).toLocaleString()}
+            </span>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" size="sm" type="button" onClick={() => setIsDraftRateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" type="submit" isLoading={isGenerating}>
+              Apply Rate (AED {monthTripRate || 0} / Trip)
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MODAL 0.5: Single Driver Month-End Rate Customizer */}
+      <Modal
+        isOpen={isDriverRateModalOpen}
+        onClose={() => setIsDriverRateModalOpen(false)}
+        title={`Decide Trip Rate: ${selectedSalaryForRate?.driverName || ''} (${formattedPeriodTitle})`}
+        maxWidth="md"
+      >
+        <form onSubmit={handleSaveDriverRate} className="space-y-4 text-xs">
+          <div className="p-3.5 bg-sky-50 border border-sky-200 rounded-xl space-y-1 font-mono">
+            <span className="font-bold text-sky-950 block font-sans">
+              Driver Completed Transports
+            </span>
+            <div className="flex justify-between">
+              <span className="font-sans text-slate-600">Total Completed in {formattedPeriodTitle}:</span>
+              <span className="font-black text-sky-800 text-sm">{selectedSalaryForRate?.totalTrips || 0} Trips</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1.5">
+              Decided Rate per Trip for {selectedSalaryForRate?.driverName} in {formattedPeriodTitle} (AED)
+            </label>
+            <input
+              type="number"
+              value={individualTripRate}
+              onChange={(e) => setIndividualTripRate(e.target.value === '' ? '' : Number(e.target.value))}
+              placeholder="e.g. 85"
+              className="h-11 w-full bg-white border border-slate-300 focus:border-violet-600 rounded-2xl px-4 text-sm font-mono font-black text-slate-900 focus:outline-none transition shadow-2xs"
+              required
+              autoFocus
+            />
+            <span className="text-[11px] text-slate-500 mt-1 block">
+              This rate applies specifically to {selectedSalaryForRate?.driverName} for {formattedPeriodTitle}.
+            </span>
+          </div>
+
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 flex items-center justify-between font-mono">
+            <span className="font-sans text-[11px]">Calculated Trip Earnings:</span>
+            <span className="font-extrabold text-sky-800 text-sm">
+              +AED {((selectedSalaryForRate?.totalTrips || 0) * (Number(individualTripRate) || 0)).toLocaleString()}
+            </span>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" size="sm" type="button" onClick={() => setIsDriverRateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" type="submit">
+              Apply Rate
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* MODAL 1: Batch Finalize Confirmation Modal */}
       <Modal
@@ -641,7 +1057,7 @@ export const DriverSalariesPage: React.FC = () => {
                 Locking Historical Snapshot
               </span>
               <span>
-                Finalizing will lock all draft records for <strong>{salaryPeriod}</strong>. Once finalized, individual salary totals become immutable historical records and will not be silently recalculated by subsequent trip changes.
+                Finalizing will lock all draft records for <strong>{formattedPeriodTitle}</strong>. Once finalized, rates and individual salary totals become immutable historical records.
               </span>
             </div>
           </div>
@@ -687,7 +1103,7 @@ export const DriverSalariesPage: React.FC = () => {
               <span className="font-bold">
                 {selectedIds.length > 0
                   ? `${selectedIds.length} Selected Drivers`
-                  : `${masterSummary?.eligibleDrivers || 0} Drivers (${salaryPeriod})`}
+                  : `${masterSummary?.eligibleDrivers || 0} Drivers (${formattedPeriodTitle})`}
               </span>
             </div>
             <div className="flex justify-between">
@@ -772,8 +1188,8 @@ export const DriverSalariesPage: React.FC = () => {
       <Modal
         isOpen={isAdjustmentModalOpen}
         onClose={() => setIsAdjustmentModalOpen(false)}
-        title={`Audited Adjustments: ${selectedSalaryForAdj?.driverName || ''} (${salaryPeriod})`}
-        maxWidth="lg"
+        title={`Audited Adjustments: ${selectedSalaryForAdj?.driverName || ''} (${formattedPeriodTitle})`}
+        maxWidth="2xl"
       >
         <div className="space-y-4 text-xs">
           {/* Header Summary */}
@@ -857,13 +1273,13 @@ export const DriverSalariesPage: React.FC = () => {
 
           {/* Form to Add New Audited Adjustment (Only if DRAFT) */}
           {selectedSalaryForAdj?.paymentStatus === 'DRAFT' ? (
-            <form onSubmit={handleAddAdjustment} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <form onSubmit={handleAddAdjustment} className="p-4 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-3">
               <span className="font-bold text-slate-800 block text-xs">
                 + Add Audited Adjustment
               </span>
 
-              <div className="grid grid-cols-3 gap-2.5">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                <div className="sm:col-span-4">
                   <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase">
                     Adjustment Type
                   </label>
@@ -878,7 +1294,7 @@ export const DriverSalariesPage: React.FC = () => {
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-3">
                   <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase">
                     Amount (AED)
                   </label>
@@ -892,7 +1308,7 @@ export const DriverSalariesPage: React.FC = () => {
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-5">
                   <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase">
                     Audit Reason (Required)
                   </label>
@@ -935,7 +1351,7 @@ export const DriverSalariesPage: React.FC = () => {
         isOpen={isSingleModalOpen}
         onClose={() => setIsSingleModalOpen(false)}
         title="Manual Driver Payroll Entry"
-        maxWidth="lg"
+        maxWidth="xl"
       >
         <form onSubmit={handleSingleSave} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -964,26 +1380,33 @@ export const DriverSalariesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-between text-xs font-medium text-sky-950">
+          <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-between text-xs font-medium text-sky-950">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0 border border-sky-200">
                 <Truck className="w-4 h-4" />
               </div>
               <div>
                 <span className="font-bold text-sky-900 block text-xs">
-                  Monthly Completed Trips
+                  Monthly Completed Transports
                 </span>
                 <span className="text-[11px] text-sky-700">
-                  {totalTrips} Completed trips in {salaryPeriod}
+                  {totalTrips} Completed trips in {formattedPeriodTitle}
                 </span>
               </div>
             </div>
 
-            <div className="text-right font-mono">
-              <span className="text-[10px] text-sky-600 uppercase tracking-wider block font-sans">Trip Earnings</span>
-              <span className="font-extrabold text-sky-800 text-sm">
-                +AED {(Number(tripEarnings) || 0).toLocaleString()}
-              </span>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] font-bold text-sky-800 uppercase font-sans">
+                Decided Rate / Trip:
+              </label>
+              <input
+                type="number"
+                value={singleRatePerTrip}
+                onChange={(e) => handleSingleRateChange(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="60"
+                className="h-8 w-20 bg-white border border-sky-300 rounded-lg px-2 text-xs font-mono font-black text-sky-900 text-right focus:outline-none focus:border-sky-600"
+              />
+              <span className="font-mono text-xs text-sky-800 font-bold">AED</span>
             </div>
           </div>
 
@@ -1001,7 +1424,7 @@ export const DriverSalariesPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5 font-sans">Trip Earnings (AED)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 font-sans">Trip Earnings ({totalTrips} × AED {singleRatePerTrip || 0})</label>
               <input
                 type="number"
                 value={tripEarnings}
@@ -1014,7 +1437,7 @@ export const DriverSalariesPage: React.FC = () => {
 
           <div className="grid grid-cols-3 gap-3 font-mono">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5 font-sans">Allowances (+)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 font-sans">Bonus / Reward (+)</label>
               <input
                 type="number"
                 value={allowances}
@@ -1049,7 +1472,7 @@ export const DriverSalariesPage: React.FC = () => {
             <div>
               <span className="text-emerald-900 font-bold block font-sans">Net Payable Monthly Salary:</span>
               <span className="text-[11px] text-emerald-700 font-sans">
-                Basic ({basicSalary || 0}) + Trips ({tripEarnings || 0}) + Allowances ({allowances || 0}) - Deductions ({deductions || 0}) - Advance ({advance || 0})
+                Basic ({basicSalary || 0}) + Trips ({tripEarnings || 0}) + Bonus ({allowances || 0}) - Deductions ({deductions || 0}) - Advance ({advance || 0})
               </span>
             </div>
             <span className="font-extrabold text-emerald-700 text-lg">AED {calculatedNet.toLocaleString()}</span>

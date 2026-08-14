@@ -19,6 +19,7 @@ export const DriversPage: React.FC = () => {
   const [cnicOrLicense, setCnicOrLicense] = useState('');
   const [salaryType, setSalaryType] = useState('MONTHLY');
   const [basicSalary, setBasicSalary] = useState<number | ''>('');
+  const [perTripRate, setPerTripRate] = useState<number | ''>(60);
   const [status, setStatus] = useState<DriverStatus>('ACTIVE');
   const [notes, setNotes] = useState('');
 
@@ -44,7 +45,8 @@ export const DriversPage: React.FC = () => {
       setPhone('');
       setCnicOrLicense('');
       setSalaryType('MONTHLY');
-      setBasicSalary('');
+      setBasicSalary(1500);
+      setPerTripRate(60);
       setStatus('ACTIVE');
       setNotes('');
       setIsModalOpen(true);
@@ -69,6 +71,7 @@ export const DriversPage: React.FC = () => {
         cnicOrLicense,
         salaryType,
         basicSalary: Number(basicSalary || 0),
+        perTripRate: Number(perTripRate || 60),
         status,
         notes,
       });
@@ -79,6 +82,7 @@ export const DriversPage: React.FC = () => {
         cnicOrLicense,
         salaryType,
         basicSalary: Number(basicSalary || 0),
+        perTripRate: Number(perTripRate || 60),
         status,
         notes,
       });
@@ -97,7 +101,10 @@ export const DriversPage: React.FC = () => {
           <div className="w-7 h-7 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center font-bold text-xs shrink-0">
             <Users className="w-3.5 h-3.5" />
           </div>
-          <span>{d.name}</span>
+          <div>
+            <span className="block font-bold text-slate-900">{d.name}</span>
+            <span className="text-[10px] text-slate-400 font-mono">{d.salaryType || 'MONTHLY'}</span>
+          </div>
         </div>
       ),
     },
@@ -120,10 +127,17 @@ export const DriversPage: React.FC = () => {
     },
     {
       key: 'basicSalary',
-      header: 'Basic Salary (AED)',
+      header: 'Base Salary',
       align: 'right',
-      className: 'font-mono font-extrabold text-emerald-600',
-      render: (d) => d.basicSalary.toLocaleString(),
+      className: 'font-mono font-bold text-slate-800',
+      render: (d) => `AED ${d.basicSalary.toLocaleString()}`,
+    },
+    {
+      key: 'perTripRate',
+      header: 'Default Trip Rate',
+      align: 'right',
+      className: 'font-mono font-black text-sky-700',
+      render: (d) => `AED ${(d.perTripRate !== undefined ? d.perTripRate : 60).toLocaleString()} / trip`,
     },
     {
       key: 'status',
@@ -156,6 +170,7 @@ export const DriversPage: React.FC = () => {
             setCnicOrLicense(d.cnicOrLicense || '');
             setSalaryType(d.salaryType);
             setBasicSalary(d.basicSalary);
+            setPerTripRate(d.perTripRate !== undefined ? d.perTripRate : 60);
             setStatus(d.status);
             setNotes(d.notes || '');
             setIsModalOpen(true);
@@ -188,6 +203,7 @@ export const DriversPage: React.FC = () => {
             setCnicOrLicense('');
             setSalaryType('MONTHLY');
             setBasicSalary(1500);
+            setPerTripRate(60);
             setStatus('ACTIVE');
             setNotes('');
             setIsModalOpen(true);
@@ -250,7 +266,7 @@ export const DriversPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Basic Salary (AED)</label>
               <input
@@ -259,6 +275,18 @@ export const DriversPage: React.FC = () => {
                 onChange={(e) => setBasicSalary(e.target.value === '' ? '' : Number(e.target.value))}
                 placeholder="1500"
                 className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-bold font-mono text-slate-900 focus:outline-none transition-all duration-200 shadow-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Rate per Trip (AED)</label>
+              <input
+                type="number"
+                value={perTripRate}
+                onChange={(e) => setPerTripRate(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="60"
+                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-black font-mono text-sky-700 focus:outline-none transition-all duration-200 shadow-sm"
                 required
               />
             </div>

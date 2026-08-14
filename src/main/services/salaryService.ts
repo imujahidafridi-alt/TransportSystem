@@ -46,7 +46,6 @@ export function calculateNetSalary(
 
 /**
  * Calculates payroll components for a single driver in a given month.
- * Strictly uses status = 'COMPLETED' and half-open date range [start, nextMonthStart).
  */
 export function calculateDriverPayrollForPeriod(
   driverId: string,
@@ -54,6 +53,7 @@ export function calculateDriverPayrollForPeriod(
 ): {
   basicSalary: number;
   completedTrips: number;
+  ratePerTrip: number;
   tripEarnings: number;
   allowances: number;
   suggestedNet: number;
@@ -64,58 +64,57 @@ export function calculateDriverPayrollForPeriod(
     .get(driverId) as any;
 
   if (!driver) {
-    return { basicSalary: 0, completedTrips: 0, tripEarnings: 0, allowances: 0, suggestedNet: 0 };
+    return { basicSalary: 0, completedTrips: 0, ratePerTrip: 0, tripEarnings: 0, allowances: 0, suggestedNet: 0 };
   }
 
   const { start, nextMonthStart } = getPeriodHalfOpenRange(salaryPeriod);
 
   const tripRow = db
     .prepare(`
-      SELECT 
-        COUNT(*) as trips,
-        COALESCE(SUM(driver_allowance), 0) as total_allowances
+      SELECT COUNT(*) as trips
       FROM transports 
       WHERE driver_id = ? 
         AND date >= ? 
         AND date < ? 
-        AND status = 'COMPLETED'
+        AND status != 'CANCELLED'
     `)
-    .get(driverId, start, nextMonthStart) as { trips: number; total_allowances: number };
+    .get(driverId, start, nextMonthStart) as { trips: number };
 
   const completedTrips = tripRow?.trips || 0;
   const basicSalary = Number(driver.basic_salary || 0);
-  const tripAllowances = Number(tripRow?.total_allowances || 0);
 
-  // If PER_TRIP driver, calculate trip earnings: trips * per_trip_rate
-  const perTripRate = Number(driver.per_trip_rate || 0);
-  const tripEarnings = driver.salary_type === 'PER_TRIP' ? completedTrips * perTripRate : 0;
+  // Check if an existing salary record has a decided rate for this month
+  const existingRecord = db
+    .prepare('SELECT rate_per_trip, trip_earnings FROM driver_salary_records WHERE driver_id = ? AND salary_period = ?')
+    .get(driverId, salaryPeriod) as { rate_per_trip: number; trip_earnings: number } | undefined;
 
-  const suggestedNet = basicSalary + tripEarnings + tripAllowances;
+  const ratePerTrip = existingRecord ? Number(existingRecord.rate_per_trip || 0) : Number(driver.per_trip_rate || 0);
+  const tripEarnings = completedTrips * ratePerTrip;
+  const suggestedNet = basicSalary + tripEarnings;
 
-  return { basicSalary, completedTrips, tripEarnings, allowances: tripAllowances, suggestedNet };
+  return { basicSalary, completedTrips, ratePerTrip, tripEarnings, allowances: 0, suggestedNet };
 }
 
 /**
  * Batch generates/refreshes payroll draft for all eligible active drivers for a period.
- * Uses a SINGLE grouped SQL query for transport aggregation (No N+1 queries).
- * Strictly preserves locked historical records (FINALIZED / PAID).
+ * Rate per trip is decided at month end.
  */
 export function generatePayrollDraftForPeriod(
   salaryPeriod: string,
+  defaultRatePerTrip?: number,
   createdBy?: string
 ): { generatedCount: number; skippedFinalizedCount: number; totalEligible: number } {
   const db = getDb();
   const { start, nextMonthStart } = getPeriodHalfOpenRange(salaryPeriod);
 
-  // 1. Single grouped aggregate query for all completed transports in the period (No N+1)
+  // 1. Single grouped aggregate query for all active transports in the period (No N+1)
   const transportAggregates = db
     .prepare(`
       SELECT 
         driver_id,
-        COUNT(*) as completed_trips,
-        COALESCE(SUM(driver_allowance), 0) as total_allowances
+        COUNT(*) as completed_trips
       FROM transports
-      WHERE status = 'COMPLETED'
+      WHERE status != 'CANCELLED'
         AND date >= ? 
         AND date < ?
       GROUP BY driver_id
@@ -123,15 +122,11 @@ export function generatePayrollDraftForPeriod(
     .all(start, nextMonthStart) as Array<{
     driver_id: string;
     completed_trips: number;
-    total_allowances: number;
   }>;
 
-  const transportMap = new Map<string, { completedTrips: number; totalAllowances: number }>();
+  const transportMap = new Map<string, number>();
   for (const row of transportAggregates) {
-    transportMap.set(row.driver_id, {
-      completedTrips: Number(row.completed_trips || 0),
-      totalAllowances: Number(row.total_allowances || 0),
-    });
+    transportMap.set(row.driver_id, Number(row.completed_trips || 0));
   }
 
   // 2. Fetch all active drivers
@@ -152,35 +147,38 @@ export function generatePayrollDraftForPeriod(
   const now = new Date().toISOString();
 
   for (const driver of activeDrivers) {
-    const tData = transportMap.get(driver.id) || { completedTrips: 0, totalAllowances: 0 };
+    const completedTrips = transportMap.get(driver.id) || 0;
     const basicSalary = Number(driver.basic_salary || 0);
-    const perTripRate = Number(driver.per_trip_rate || 0);
-    const tripEarnings = driver.salary_type === 'PER_TRIP' ? tData.completedTrips * perTripRate : 0;
 
-    // Meaningful Eligibility Rule:
-    // Eligible IF MONTHLY driver (owed contract basic salary) OR has completed trips / allowances
     const isEligible =
       driver.salary_type === 'MONTHLY' ||
-      tData.completedTrips > 0 ||
-      tData.totalAllowances > 0 ||
+      completedTrips > 0 ||
       basicSalary > 0;
 
     if (!isEligible) {
-      continue; // Skip inactive per-trip drivers with 0 activity
+      continue;
     }
 
     totalEligible++;
 
     // Check if a record already exists for this driver and period
     const existing = db
-      .prepare('SELECT id, payment_status, deductions, advance, allowances FROM driver_salary_records WHERE driver_id = ? AND salary_period = ?')
+      .prepare('SELECT id, payment_status, rate_per_trip, deductions, advance, allowances FROM driver_salary_records WHERE driver_id = ? AND salary_period = ?')
       .get(driver.id, salaryPeriod) as {
       id: string;
       payment_status: SalaryPaymentStatus;
+      rate_per_trip: number;
       deductions: number;
       advance: number;
       allowances: number;
     } | undefined;
+
+    // Rate is either explicitly passed, or preserved from existing draft, or driver default
+    const tripRate = defaultRatePerTrip !== undefined
+      ? Number(defaultRatePerTrip)
+      : (existing && existing.rate_per_trip !== undefined ? Number(existing.rate_per_trip) : (Number(driver.per_trip_rate) || 0));
+
+    const tripEarnings = completedTrips * tripRate;
 
     if (existing) {
       // Backend Immutability Rule: If FINALIZED or PAID, do not overwrite historical snapshot!
@@ -189,25 +187,25 @@ export function generatePayrollDraftForPeriod(
         continue;
       }
 
-      // If DRAFT, refresh with active transport aggregates while preserving existing manual deductions/advances
       const netSalary = calculateNetSalary(
         basicSalary,
         tripEarnings,
-        tData.totalAllowances,
+        existing.allowances || 0,
         existing.deductions || 0,
         existing.advance || 0
       );
 
       db.prepare(`
         UPDATE driver_salary_records
-        SET basic_salary = ?, total_trips = ?, trip_earnings = ?, allowances = ?,
+        SET basic_salary = ?, total_trips = ?, rate_per_trip = ?, trip_earnings = ?, allowances = ?,
             net_salary = ?, updated_at = ?
         WHERE id = ?
       `).run(
         basicSalary,
-        tData.completedTrips,
+        completedTrips,
+        tripRate,
         tripEarnings,
-        tData.totalAllowances,
+        existing.allowances || 0,
         netSalary,
         now,
         existing.id
@@ -220,29 +218,28 @@ export function generatePayrollDraftForPeriod(
       const netSalary = calculateNetSalary(
         basicSalary,
         tripEarnings,
-        tData.totalAllowances,
+        0,
         0,
         0
       );
 
       db.prepare(`
         INSERT INTO driver_salary_records (
-          id, driver_id, salary_period, basic_salary, total_trips, trip_earnings,
-          allowances, deductions, advance, net_salary, payment_status,
-          notes, created_at, updated_at
+          id, driver_id, salary_period, basic_salary, total_trips, rate_per_trip, trip_earnings,
+          allowances, deductions, advance, net_salary, payment_status, notes, created_at, updated_at
         ) VALUES (
-          ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 'DRAFT', ?, ?, ?
+          ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, 'DRAFT', ?, ?, ?
         )
       `).run(
         id,
         driver.id,
         salaryPeriod,
         basicSalary,
-        tData.completedTrips,
+        completedTrips,
+        tripRate,
         tripEarnings,
-        tData.totalAllowances,
         netSalary,
-        createdBy ? `Draft generated by ${createdBy}` : 'Auto-generated draft',
+        createdBy ? `Draft generated by ${createdBy}` : null,
         now,
         now
       );
@@ -255,8 +252,107 @@ export function generatePayrollDraftForPeriod(
 }
 
 /**
+ * Updates the decided per-trip rate for an individual driver for their specific monthly draft.
+ */
+export function updateDriverTripRate(salaryRecordId: string, ratePerTrip: number): DriverSalaryRecord {
+  const db = getDb();
+  const salary = getSalaryById(salaryRecordId);
+  if (!salary) throw new Error('Salary record not found.');
+  if (salary.paymentStatus === 'FINALIZED' || salary.paymentStatus === 'PAID') {
+    throw new Error(`Cannot modify ${salary.paymentStatus} salary record.`);
+  }
+
+  const rate = Math.max(0, Number(ratePerTrip) || 0);
+  const { start, nextMonthStart } = getPeriodHalfOpenRange(salary.salaryPeriod);
+
+  // Always query fresh completed trips count from transports
+  const tripRow = db
+    .prepare("SELECT COUNT(*) as trips FROM transports WHERE driver_id = ? AND date >= ? AND date < ? AND status != 'CANCELLED'")
+    .get(salary.driverId, start, nextMonthStart) as { trips: number } | undefined;
+
+  const totalTrips = tripRow?.trips ?? salary.totalTrips ?? 0;
+  const tripEarnings = totalTrips * rate;
+  const netSalary = calculateNetSalary(
+    salary.basicSalary,
+    tripEarnings,
+    salary.allowances,
+    salary.deductions,
+    salary.advance
+  );
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    UPDATE driver_salary_records
+    SET total_trips = ?, rate_per_trip = ?, trip_earnings = ?, net_salary = ?, updated_at = ?
+    WHERE id = ?
+  `).run(totalTrips, rate, tripEarnings, netSalary, now, salaryRecordId);
+
+  return getSalaryById(salaryRecordId)!;
+}
+
+/**
+ * Batch updates all DRAFT salary records for a month with a uniform decided rate per trip.
+ */
+export function batchUpdateTripRate(salaryPeriod: string, ratePerTrip: number): { updatedCount: number } {
+  const db = getDb();
+  const rate = Math.max(0, Number(ratePerTrip) || 0);
+  const now = new Date().toISOString();
+  const { start, nextMonthStart } = getPeriodHalfOpenRange(salaryPeriod);
+
+  // Query actual completed trips from transports table
+  const transportAggregates = db
+    .prepare(`
+      SELECT 
+        driver_id,
+        COUNT(*) as completed_trips
+      FROM transports
+      WHERE status != 'CANCELLED'
+        AND date >= ? 
+        AND date < ?
+      GROUP BY driver_id
+    `)
+    .all(start, nextMonthStart) as Array<{
+    driver_id: string;
+    completed_trips: number;
+  }>;
+
+  const transportMap = new Map<string, number>();
+  for (const row of transportAggregates) {
+    transportMap.set(row.driver_id, Number(row.completed_trips || 0));
+  }
+
+  const draftRecords = db
+    .prepare("SELECT id, driver_id, basic_salary, total_trips, allowances, deductions, advance FROM driver_salary_records WHERE salary_period = ? AND payment_status = 'DRAFT'")
+    .all(salaryPeriod) as Array<{
+      id: string;
+      driver_id: string;
+      basic_salary: number;
+      total_trips: number;
+      allowances: number;
+      deductions: number;
+      advance: number;
+    }>;
+
+  let updatedCount = 0;
+  const updateStmt = db.prepare(`
+    UPDATE driver_salary_records
+    SET total_trips = ?, rate_per_trip = ?, trip_earnings = ?, net_salary = ?, updated_at = ?
+    WHERE id = ?
+  `);
+
+  for (const s of draftRecords) {
+    const actualTrips = transportMap.get(s.driver_id) ?? s.total_trips ?? 0;
+    const tripEarnings = actualTrips * rate;
+    const netSalary = calculateNetSalary(s.basic_salary, tripEarnings, s.allowances, s.deductions, s.advance);
+    updateStmt.run(actualTrips, rate, tripEarnings, netSalary, now, s.id);
+    updatedCount++;
+  }
+
+  return { updatedCount };
+}
+
+/**
  * Locks all DRAFT records for a period into FINALIZED historical snapshots.
- * Backend enforces that only DRAFT records can be finalized.
  */
 export function finalizePayrollForPeriod(
   salaryPeriod: string,
@@ -283,12 +379,20 @@ export function finalizePayrollForPeriod(
   }
 
   const result = db.prepare(sql).run(...params);
+
+  // Queue sync operation
+  enqueueSyncOperation('UPDATE', 'driver_salary_records', salaryPeriod, {
+    action: 'FINALIZE_PAYROLL',
+    salaryPeriod,
+    finalizedBy,
+    finalizedAt: now,
+  });
+
   return { finalizedCount: result.changes };
 }
 
 /**
- * Disburses payment and marks records as PAID with complete audit metadata.
- * Supports batch marking of finalized/draft records.
+ * Transitions FINALIZED or DRAFT records to PAID with audit disbursement metadata.
  */
 export function markSalariesPaid(payload: {
   salaryRecordIds: string[];
@@ -296,16 +400,18 @@ export function markSalariesPaid(payload: {
   paymentMethod: string;
   paymentReference?: string;
   paidBy: string;
-}): { paidCount: number } {
+}): { updatedCount: number } {
   const db = getDb();
-  const now = new Date().toISOString();
+  const { salaryRecordIds, paymentDate, paymentMethod, paymentReference, paidBy } = payload;
 
-  if (!payload.salaryRecordIds || payload.salaryRecordIds.length === 0) {
-    return { paidCount: 0 };
+  if (!salaryRecordIds || salaryRecordIds.length === 0) {
+    return { updatedCount: 0 };
   }
 
-  const placeholders = payload.salaryRecordIds.map(() => '?').join(',');
-  const sql = `
+  const now = new Date().toISOString();
+  const placeholders = salaryRecordIds.map(() => '?').join(',');
+
+  const stmt = db.prepare(`
     UPDATE driver_salary_records
     SET payment_status = 'PAID',
         payment_date = ?,
@@ -314,23 +420,34 @@ export function markSalariesPaid(payload: {
         paid_by = ?,
         updated_at = ?
     WHERE id IN (${placeholders})
-  `;
+  `);
 
-  const result = db.prepare(sql).run(
-    payload.paymentDate,
-    payload.paymentMethod || 'Bank Transfer / WPS',
-    payload.paymentReference || null,
-    payload.paidBy || 'Admin',
+  const result = stmt.run(
+    paymentDate,
+    paymentMethod,
+    paymentReference || null,
+    paidBy,
     now,
-    ...payload.salaryRecordIds
+    ...salaryRecordIds
   );
 
-  return { paidCount: result.changes };
+  // Queue sync
+  for (const id of salaryRecordIds) {
+    enqueueSyncOperation('UPDATE', 'driver_salary_records', id, {
+      paymentStatus: 'PAID',
+      paymentDate,
+      paymentMethod,
+      paymentReference,
+      paidBy,
+      updatedAt: now,
+    });
+  }
+
+  return { updatedCount: result.changes };
 }
 
 /**
- * Structured adjustments audit service: Add an adjustment to a salary record.
- * Backend strictly blocks adjustments on FINALIZED or PAID records.
+ * Adds an audited adjustment record (Bonus, Deduction, Cash Advance).
  */
 export function addSalaryAdjustment(data: {
   salaryRecordId: string;
@@ -341,9 +458,7 @@ export function addSalaryAdjustment(data: {
 }): DriverSalaryRecord {
   const db = getDb();
   const salary = getSalaryById(data.salaryRecordId);
-  if (!salary) {
-    throw new Error(`Salary record '${data.salaryRecordId}' not found.`);
-  }
+  if (!salary) throw new Error('Salary record not found.');
 
   // Backend Immutability Rule: Reject modifications on locked records
   if (salary.paymentStatus === 'FINALIZED' || salary.paymentStatus === 'PAID') {
@@ -398,20 +513,10 @@ function recalculateSalaryTotalsFromAdjustments(salaryRecordId: string) {
     else if (adj.adjustment_type === 'ADVANCE') advanceTotal += adj.amount;
   }
 
-  const { start, nextMonthStart } = getPeriodHalfOpenRange(salary.salary_period);
-  const tripRow = db
-    .prepare(`
-      SELECT COALESCE(SUM(driver_allowance), 0) as total_allowances
-      FROM transports 
-      WHERE driver_id = ? AND date >= ? AND date < ? AND status = 'COMPLETED'
-    `)
-    .get(salary.driver_id, start, nextMonthStart) as { total_allowances: number };
-
-  const totalAllowances = (tripRow?.total_allowances || 0) + bonusTotal;
   const netSalary = calculateNetSalary(
     salary.basic_salary,
     salary.trip_earnings,
-    totalAllowances,
+    bonusTotal,
     deductionTotal,
     advanceTotal
   );
@@ -420,7 +525,7 @@ function recalculateSalaryTotalsFromAdjustments(salaryRecordId: string) {
     UPDATE driver_salary_records
     SET allowances = ?, deductions = ?, advance = ?, net_salary = ?, updated_at = ?
     WHERE id = ?
-  `).run(totalAllowances, deductionTotal, advanceTotal, netSalary, new Date().toISOString(), salaryRecordId);
+  `).run(bonusTotal, deductionTotal, advanceTotal, netSalary, new Date().toISOString(), salaryRecordId);
 }
 
 export function getSalaryAdjustments(salaryRecordId: string): DriverSalaryAdjustment[] {
@@ -464,7 +569,7 @@ export function getMasterPayrollSummary(salaryPeriod: string): MasterPayrollSumm
 
   // Completed trips in the period
   const tripRow = db
-    .prepare("SELECT COUNT(*) as trips, COUNT(DISTINCT driver_id) as working_drivers FROM transports WHERE date >= ? AND date < ? AND status = 'COMPLETED'")
+    .prepare("SELECT COUNT(*) as trips, COUNT(DISTINCT driver_id) as working_drivers FROM transports WHERE date >= ? AND date < ? AND status != 'CANCELLED'")
     .get(start, nextMonthStart) as { trips: number; working_drivers: number };
 
   const completedTrips = tripRow?.trips || 0;
@@ -533,7 +638,8 @@ export function getAllSalaries(salaryPeriod?: string, driverId?: string, payment
   const sql = `
     SELECT s.id, s.driver_id as driverId, d.name as driverName, d.salary_type as salaryType,
            s.salary_period as salaryPeriod, s.basic_salary as basicSalary,
-           s.total_trips as totalTrips, s.trip_earnings as tripEarnings,
+           s.total_trips as totalTrips, s.rate_per_trip as ratePerTrip, s.rate_per_trip as perTripRate,
+           s.trip_earnings as tripEarnings,
            s.allowances, s.deductions, s.advance, s.net_salary as netSalary,
            s.payment_date as paymentDate, s.payment_status as paymentStatus,
            s.payment_method as paymentMethod, s.payment_reference as paymentReference,
@@ -546,13 +652,81 @@ export function getAllSalaries(salaryPeriod?: string, driverId?: string, payment
   `;
 
   const records = db.prepare(sql).all(...params) as DriverSalaryRecord[];
+
+  // Self-heal and sync live trip counts for DRAFT records
+  if (salaryPeriod) {
+    const { start, nextMonthStart } = getPeriodHalfOpenRange(salaryPeriod);
+    const transportAggregates = db
+      .prepare(`
+        SELECT driver_id, COUNT(*) as completed_trips
+        FROM transports
+        WHERE status != 'CANCELLED'
+          AND date >= ? 
+          AND date < ?
+        GROUP BY driver_id
+      `)
+      .all(start, nextMonthStart) as Array<{ driver_id: string; completed_trips: number }>;
+
+    const transportMap = new Map<string, number>();
+    for (const row of transportAggregates) {
+      transportMap.set(row.driver_id, Number(row.completed_trips || 0));
+    }
+
+    const updateStmt = db.prepare(`
+      UPDATE driver_salary_records
+      SET total_trips = ?, trip_earnings = ?, net_salary = ?, updated_at = ?
+      WHERE id = ?
+    `);
+
+    const now = new Date().toISOString();
+
+    for (const rec of records) {
+      if (rec.paymentStatus === 'DRAFT') {
+        const actualTrips = transportMap.get(rec.driverId) || 0;
+        const rate = Number(rec.ratePerTrip || 0);
+
+        // If trip count is out of sync or trips > 0 with calculated earnings:
+        if (rec.totalTrips !== actualTrips || (actualTrips > 0 && rec.tripEarnings !== actualTrips * rate)) {
+          rec.totalTrips = actualTrips;
+          rec.tripEarnings = actualTrips * rate;
+          rec.netSalary = calculateNetSalary(rec.basicSalary, rec.tripEarnings, rec.allowances, rec.deductions, rec.advance);
+          updateStmt.run(actualTrips, rec.tripEarnings, rec.netSalary, now, rec.id);
+        }
+      }
+    }
+  }
+
+  // Populate audited adjustments for all records
+  const adjStmt = db.prepare(`
+    SELECT id, salary_record_id as salaryRecordId, adjustment_type as adjustmentType,
+           amount, reason, created_at as createdAt, created_by as createdBy
+    FROM driver_salary_adjustments
+    WHERE salary_record_id = ?
+    ORDER BY created_at ASC
+  `);
+
+  for (const rec of records) {
+    rec.adjustments = adjStmt.all(rec.id) as DriverSalaryAdjustment[];
+  }
+
   return records;
 }
 
 export function createSalaryRecord(data: Omit<DriverSalaryRecord, 'id' | 'netSalary' | 'createdAt' | 'updatedAt'>): DriverSalaryRecord {
   const db = getDb();
-  const totalTrips = data.totalTrips || 0;
-  const tripEarnings = data.tripEarnings || 0;
+  const { start, nextMonthStart } = getPeriodHalfOpenRange(data.salaryPeriod);
+
+  // If totalTrips is 0 or not passed, count from transports
+  let totalTrips = data.totalTrips || 0;
+  if (totalTrips === 0) {
+    const tripRow = db
+      .prepare("SELECT COUNT(*) as trips FROM transports WHERE driver_id = ? AND date >= ? AND date < ? AND status != 'CANCELLED'")
+      .get(data.driverId, start, nextMonthStart) as { trips: number } | undefined;
+    totalTrips = tripRow?.trips || 0;
+  }
+
+  const ratePerTrip = Number(data.ratePerTrip !== undefined ? data.ratePerTrip : (data.perTripRate || 0));
+  const tripEarnings = data.tripEarnings !== undefined ? Number(data.tripEarnings) : totalTrips * ratePerTrip;
   const netSalary = calculateNetSalary(data.basicSalary, tripEarnings, data.allowances, data.deductions, data.advance);
   const now = new Date().toISOString();
 
@@ -566,12 +740,13 @@ export function createSalaryRecord(data: Omit<DriverSalaryRecord, 'id' | 'netSal
 
     db.prepare(`
       UPDATE driver_salary_records
-      SET basic_salary = ?, total_trips = ?, trip_earnings = ?, allowances = ?, deductions = ?, advance = ?,
+      SET basic_salary = ?, total_trips = ?, rate_per_trip = ?, trip_earnings = ?, allowances = ?, deductions = ?, advance = ?,
           net_salary = ?, payment_date = ?, payment_status = ?, notes = ?, updated_at = ?
       WHERE id = ?
     `).run(
       data.basicSalary || 0,
       totalTrips,
+      ratePerTrip,
       tripEarnings,
       data.allowances || 0,
       data.deductions || 0,
@@ -583,26 +758,29 @@ export function createSalaryRecord(data: Omit<DriverSalaryRecord, 'id' | 'netSal
       now,
       existing.id
     );
-    const rec = getSalaryById(existing.id)!;
-    enqueueSyncOperation('UPDATE', 'SALARIES', existing.id, rec);
-    return rec;
+
+    syncManualEntryAdjustments(db, existing.id, data.allowances || 0, data.deductions || 0, data.advance || 0, now);
+    return getSalaryById(existing.id)!;
   }
 
   const id = cryptoRandomUUID();
-  const stmt = db.prepare(`
+  db.prepare(`
     INSERT INTO driver_salary_records (
-      id, driver_id, salary_period, basic_salary, total_trips, trip_earnings, allowances, deductions, advance, net_salary, payment_date, payment_status, notes, created_at, updated_at
+      id, driver_id, salary_period, basic_salary, total_trips, rate_per_trip, trip_earnings,
+      allowances, deductions, advance, net_salary, payment_date, payment_status,
+      payment_method, payment_reference, paid_by, notes, created_at, updated_at
     ) VALUES (
-      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?
     )
-  `);
-
-  stmt.run(
+  `).run(
     id,
     data.driverId,
     data.salaryPeriod,
     data.basicSalary || 0,
     totalTrips,
+    ratePerTrip,
     tripEarnings,
     data.allowances || 0,
     data.deductions || 0,
@@ -610,51 +788,104 @@ export function createSalaryRecord(data: Omit<DriverSalaryRecord, 'id' | 'netSal
     netSalary,
     data.paymentDate || null,
     data.paymentStatus || 'DRAFT',
+    data.paymentMethod || null,
+    data.paymentReference || null,
+    data.paidBy || null,
     data.notes || null,
     now,
     now
   );
 
-  const rec = getSalaryById(id)!;
-  enqueueSyncOperation('CREATE', 'SALARIES', id, rec);
-  return rec;
+  syncManualEntryAdjustments(db, id, data.allowances || 0, data.deductions || 0, data.advance || 0, now);
+  return getSalaryById(id)!;
 }
 
-export function updateSalaryStatus(id: string, paymentStatus: SalaryPaymentStatus, paymentDate?: string): DriverSalaryRecord {
+/**
+ * Synchronizes manual entry allowances/deductions/advances with driver_salary_adjustments table.
+ */
+function syncManualEntryAdjustments(
+  db: any,
+  salaryRecordId: string,
+  allowances: number,
+  deductions: number,
+  advance: number,
+  now: string
+) {
+  const existingAdjustments = db
+    .prepare('SELECT id, adjustment_type, amount, reason, created_by FROM driver_salary_adjustments WHERE salary_record_id = ?')
+    .all(salaryRecordId) as Array<{ id: string; adjustment_type: string; amount: number; reason: string; created_by: string }>;
+
+  const syncType = (type: 'BONUS' | 'DEDUCTION' | 'ADVANCE', targetAmount: number, defaultReason: string) => {
+    const matching = existingAdjustments.filter((a) => a.adjustment_type === type);
+    const currentSum = matching.reduce((acc, a) => acc + a.amount, 0);
+
+    if (targetAmount > 0) {
+      if (matching.length === 0) {
+        const id = cryptoRandomUUID();
+        db.prepare(`
+          INSERT INTO driver_salary_adjustments (id, salary_record_id, adjustment_type, amount, reason, created_at, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(id, salaryRecordId, type, targetAmount, defaultReason, now, 'Manual Entry');
+      } else if (matching.length === 1 && currentSum !== targetAmount) {
+        db.prepare('UPDATE driver_salary_adjustments SET amount = ? WHERE id = ?').run(targetAmount, matching[0].id);
+      } else if (currentSum !== targetAmount) {
+        const delta = targetAmount - currentSum;
+        if (delta > 0) {
+          const id = cryptoRandomUUID();
+          db.prepare(`
+            INSERT INTO driver_salary_adjustments (id, salary_record_id, adjustment_type, amount, reason, created_at, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).run(id, salaryRecordId, type, delta, `${defaultReason} (Adjustment)`, now, 'Manual Entry');
+        }
+      }
+    } else if (targetAmount === 0 && matching.length > 0) {
+      db.prepare("DELETE FROM driver_salary_adjustments WHERE salary_record_id = ? AND adjustment_type = ? AND created_by = 'Manual Entry'").run(salaryRecordId, type);
+    }
+  };
+
+  syncType('BONUS', Number(allowances || 0), 'Manual Entry Bonus');
+  syncType('DEDUCTION', Number(deductions || 0), 'Manual Entry Deduction');
+  syncType('ADVANCE', Number(advance || 0), 'Manual Entry Cash Advance');
+}
+
+export function updateSalaryStatus(
+  id: string,
+  paymentStatus: string,
+  paymentDate?: string
+): DriverSalaryRecord {
   const db = getDb();
   const now = new Date().toISOString();
-  const pDate = paymentStatus === 'PAID' ? (paymentDate || now.slice(0, 10)) : paymentDate;
 
   db.prepare(`
     UPDATE driver_salary_records
     SET payment_status = ?, payment_date = ?, updated_at = ?
     WHERE id = ?
-  `).run(paymentStatus, pDate || null, now, id);
+  `).run(paymentStatus, paymentDate || null, now, id);
 
-  const rec = getSalaryById(id)!;
-  enqueueSyncOperation('UPDATE', 'SALARIES', id, rec);
-  return rec;
+  return getSalaryById(id)!;
 }
 
-export function getSalaryById(id: string): DriverSalaryRecord | null {
+export function getSalaryById(id: string): DriverSalaryRecord | undefined {
   const db = getDb();
-  const sql = `
-    SELECT s.id, s.driver_id as driverId, d.name as driverName, d.salary_type as salaryType,
-           s.salary_period as salaryPeriod, s.basic_salary as basicSalary,
-           s.total_trips as totalTrips, s.trip_earnings as tripEarnings,
-           s.allowances, s.deductions, s.advance, s.net_salary as netSalary,
-           s.payment_date as paymentDate, s.payment_status as paymentStatus,
-           s.payment_method as paymentMethod, s.payment_reference as paymentReference,
-           s.paid_by as paidBy, s.finalized_at as finalizedAt, s.finalized_by as finalizedBy,
-           s.notes, s.created_at as createdAt, s.updated_at as updatedAt
-    FROM driver_salary_records s
-    JOIN drivers d ON s.driver_id = d.id
-    WHERE s.id = ?
-  `;
-  const res = db.prepare(sql).get(id) as DriverSalaryRecord | undefined;
-  if (!res) return null;
+  const row = db
+    .prepare(`
+      SELECT s.id, s.driver_id as driverId, d.name as driverName, d.salary_type as salaryType,
+             s.salary_period as salaryPeriod, s.basic_salary as basicSalary,
+             s.total_trips as totalTrips, s.rate_per_trip as ratePerTrip, s.rate_per_trip as perTripRate,
+             s.trip_earnings as tripEarnings,
+             s.allowances, s.deductions, s.advance, s.net_salary as netSalary,
+             s.payment_date as paymentDate, s.payment_status as paymentStatus,
+             s.payment_method as paymentMethod, s.payment_reference as paymentReference,
+             s.paid_by as paidBy, s.finalized_at as finalizedAt, s.finalized_by as finalizedBy,
+             s.notes, s.created_at as createdAt, s.updated_at as updatedAt
+      FROM driver_salary_records s
+      JOIN drivers d ON s.driver_id = d.id
+      WHERE s.id = ?
+    `)
+    .get(id) as DriverSalaryRecord | undefined;
 
-  res.adjustments = getSalaryAdjustments(id);
-  return res;
+  if (row) {
+    row.adjustments = getSalaryAdjustments(id);
+  }
+  return row;
 }
-

@@ -22,6 +22,7 @@ export interface Driver {
   cnicOrLicense?: string;
   salaryType: string;
   basicSalary: number;
+  perTripRate?: number;
   status: DriverStatus;
   notes?: string;
   createdAt: string;
@@ -201,6 +202,8 @@ export interface DriverSalaryRecord {
   salaryPeriod: string; // e.g. "2026-08"
   basicSalary: number;
   totalTrips?: number;
+  ratePerTrip?: number;
+  perTripRate?: number;
   tripEarnings?: number;
   allowances: number;
   deductions: number;

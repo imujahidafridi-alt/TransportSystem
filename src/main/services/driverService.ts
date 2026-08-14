@@ -9,7 +9,8 @@ export function getAllDrivers(search?: string): Driver[] {
     const s = `%${search.trim()}%`;
     return db.prepare(`
       SELECT id, name, phone, cnic_or_license as cnicOrLicense, salary_type as salaryType,
-             basic_salary as basicSalary, status, notes, created_at as createdAt, updated_at as updatedAt
+             basic_salary as basicSalary, per_trip_rate as perTripRate, status, notes,
+             created_at as createdAt, updated_at as updatedAt
       FROM drivers
       WHERE name LIKE ? OR phone LIKE ? OR cnic_or_license LIKE ?
       ORDER BY name ASC
@@ -17,7 +18,8 @@ export function getAllDrivers(search?: string): Driver[] {
   }
   return db.prepare(`
     SELECT id, name, phone, cnic_or_license as cnicOrLicense, salary_type as salaryType,
-           basic_salary as basicSalary, status, notes, created_at as createdAt, updated_at as updatedAt
+           basic_salary as basicSalary, per_trip_rate as perTripRate, status, notes,
+           created_at as createdAt, updated_at as updatedAt
     FROM drivers
     ORDER BY name ASC
   `).all() as Driver[];
@@ -29,6 +31,7 @@ export function createDriver(data: {
   cnicOrLicense?: string;
   salaryType?: string;
   basicSalary: number;
+  perTripRate?: number;
   status?: DriverStatus;
   notes?: string;
 }): Driver {
@@ -48,8 +51,8 @@ export function createDriver(data: {
   const now = new Date().toISOString();
 
   const stmt = db.prepare(`
-    INSERT INTO drivers (id, name, phone, cnic_or_license, salary_type, basic_salary, status, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO drivers (id, name, phone, cnic_or_license, salary_type, basic_salary, per_trip_rate, status, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -59,6 +62,7 @@ export function createDriver(data: {
     data.cnicOrLicense || null,
     data.salaryType || 'MONTHLY',
     data.basicSalary || 0,
+    data.perTripRate !== undefined ? Number(data.perTripRate) : 60,
     data.status || 'ACTIVE',
     data.notes || null,
     now,
@@ -81,6 +85,7 @@ export function updateDriver(id: string, data: Partial<Driver>): Driver {
         cnic_or_license = COALESCE(?, cnic_or_license),
         salary_type = COALESCE(?, salary_type),
         basic_salary = COALESCE(?, basic_salary),
+        per_trip_rate = COALESCE(?, per_trip_rate),
         status = COALESCE(?, status),
         notes = COALESCE(?, notes),
         updated_at = ?
@@ -93,6 +98,7 @@ export function updateDriver(id: string, data: Partial<Driver>): Driver {
     data.cnicOrLicense || null,
     data.salaryType || null,
     data.basicSalary !== undefined ? data.basicSalary : null,
+    data.perTripRate !== undefined ? data.perTripRate : null,
     data.status || null,
     data.notes || null,
     now,
@@ -108,7 +114,8 @@ export function getDriverById(id: string): Driver | null {
   const db = getDb();
   const res = db.prepare(`
     SELECT id, name, phone, cnic_or_license as cnicOrLicense, salary_type as salaryType,
-           basic_salary as basicSalary, status, notes, created_at as createdAt, updated_at as updatedAt
+           basic_salary as basicSalary, per_trip_rate as perTripRate, status, notes,
+           created_at as createdAt, updated_at as updatedAt
     FROM drivers WHERE id = ?
   `).get(id) as Driver | undefined;
   return res || null;

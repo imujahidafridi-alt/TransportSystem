@@ -25,6 +25,7 @@ interface DataTableProps<T> {
   countBadge?: number;
   actionButton?: React.ReactNode;
   emptyMessage?: string;
+  emptyState?: React.ReactNode;
   rowClassName?: (row: T, index: number) => string;
   defaultPageSize?: number;
 }
@@ -37,52 +38,58 @@ export function DataTable<T>({
   countBadge,
   actionButton,
   emptyMessage = 'No records found.',
+  emptyState,
   rowClassName,
   defaultPageSize = 25,
 }: DataTableProps<T>): React.ReactElement {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
 
-  // Reset to page 1 if data length changes significantly or pageSize changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [data.length, pageSize]);
+  const parentRef = useRef<HTMLDivElement>(null);
 
+  // Pagination Slice
   const totalRecords = data.length;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-  const validCurrentPage = Math.min(currentPage, totalPages);
+  const totalPages = Math.ceil(totalRecords / pageSize) || 1;
+  const validPage = Math.min(Math.max(1, currentPage), totalPages);
 
-  const startIndex = (validCurrentPage - 1) * pageSize;
+  const startIndex = (validPage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalRecords);
   const paginatedData = data.slice(startIndex, endIndex);
 
-  // Virtualizer DOM Parent Container Ref
-  const parentRef = useRef<HTMLDivElement>(null);
-
+  // TanStack Virtualizer on the paginated slice
   const rowVirtualizer = useVirtualizer({
     count: paginatedData.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 44,
-    overscan: 5,
+    estimateSize: () => 48,
+    overscan: 10,
   });
 
   const virtualItems = rowVirtualizer.getVirtualItems();
-  const totalSize = rowVirtualizer.getTotalSize();
+  const totalVirtualSize = rowVirtualizer.getTotalSize();
+
   const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
   const paddingBottom =
     virtualItems.length > 0
-      ? totalSize - virtualItems[virtualItems.length - 1].end
+      ? totalVirtualSize - virtualItems[virtualItems.length - 1].end
       : 0;
 
+  // Auto reset page if totalPages shrinks
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
   return (
-    <div className="bg-white border border-slate-200/80 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col h-full">
-      {/* Toolbar Header */}
-      {(title || actionButton) && (
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4 shrink-0 rounded-t-2xl">
+    <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs flex flex-col flex-1 min-h-0 overflow-hidden select-none">
+      {/* Optional Title Header */}
+      {(title || countBadge !== undefined || actionButton) && (
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {title && (
-              <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                {title} {typeof countBadge === 'number' ? `(${countBadge.toLocaleString()})` : ''}
+            {title && <h3 className="font-bold text-slate-800 text-sm">{title}</h3>}
+            {countBadge !== undefined && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800">
+                {countBadge}
               </span>
             )}
           </div>
@@ -93,7 +100,7 @@ export function DataTable<T>({
       {/* Virtualized Table Container */}
       <div ref={parentRef} className="flex-1 smooth-scroll min-h-0 relative">
         <table className="w-full text-left text-xs border-collapse font-sans">
-          <thead className="bg-violet-50/80 text-violet-950 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-violet-100 select-none">
+          <thead className="bg-slate-50/90 text-slate-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-200/80 select-none">
             <tr>
               {columns.map((col) => {
                 const alignClass =
@@ -105,7 +112,7 @@ export function DataTable<T>({
                 return (
                   <th
                     key={col.key}
-                    className={`py-3.5 px-3.5 border-r border-violet-100/80 last:border-r-0 ${alignClass} ${
+                    className={`py-3.5 px-3.5 border-r border-slate-200/60 last:border-r-0 ${alignClass} ${
                       col.headerClassName || ''
                     }`}
                   >
@@ -118,8 +125,8 @@ export function DataTable<T>({
           <tbody className="divide-y divide-slate-100 text-slate-700">
             {totalRecords === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="py-12 text-center text-slate-400 font-sans">
-                  {emptyMessage}
+                <td colSpan={columns.length} className="py-8 text-center text-slate-400 font-sans">
+                  {emptyState || emptyMessage}
                 </td>
               </tr>
             ) : (
@@ -211,7 +218,7 @@ export function DataTable<T>({
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setCurrentPage(1)}
-              disabled={validCurrentPage === 1}
+              disabled={validPage === 1}
               className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-violet-50 text-slate-600 hover:text-violet-700 disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-600 transition shadow-sm"
               title="First Page"
             >
@@ -219,7 +226,7 @@ export function DataTable<T>({
             </button>
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={validCurrentPage === 1}
+              disabled={validPage === 1}
               className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-violet-50 text-slate-600 hover:text-violet-700 disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-600 transition shadow-sm"
               title="Previous Page"
             >
@@ -227,12 +234,12 @@ export function DataTable<T>({
             </button>
 
             <span className="px-3 py-1 font-bold text-slate-800 text-xs">
-              Page {validCurrentPage.toLocaleString()} of {totalPages.toLocaleString()}
+              Page {validPage.toLocaleString()} of {totalPages.toLocaleString()}
             </span>
 
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={validCurrentPage === totalPages}
+              disabled={validPage === totalPages}
               className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-violet-50 text-slate-600 hover:text-violet-700 disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-600 transition shadow-sm"
               title="Next Page"
             >
@@ -240,7 +247,7 @@ export function DataTable<T>({
             </button>
             <button
               onClick={() => setCurrentPage(totalPages)}
-              disabled={validCurrentPage === totalPages}
+              disabled={validPage === totalPages}
               className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-violet-50 text-slate-600 hover:text-violet-700 disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-600 transition shadow-sm"
               title="Last Page"
             >

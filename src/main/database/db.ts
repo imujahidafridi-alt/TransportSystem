@@ -57,9 +57,14 @@ export function initDatabase(): Database.Database {
     // Column already exists
   }
 
-  // Migration: Ensure total_trips & trip_earnings exist in driver_salary_records
+  // Migration: Ensure total_trips, rate_per_trip & trip_earnings exist in driver_salary_records
   try {
     dbInstance.exec('ALTER TABLE driver_salary_records ADD COLUMN total_trips INTEGER NOT NULL DEFAULT 0;');
+  } catch {
+    // Column already exists
+  }
+  try {
+    dbInstance.exec('ALTER TABLE driver_salary_records ADD COLUMN rate_per_trip REAL NOT NULL DEFAULT 0;');
   } catch {
     // Column already exists
   }

@@ -36,6 +36,7 @@ export const TransportFormModal: React.FC<TransportFormModalProps> = ({
   const [tons, setTons] = useState<number | ''>('');
   const [ratePerTon, setRatePerTon] = useState<number | ''>('');
   const [fixedPrice, setFixedPrice] = useState<number | ''>('');
+  const [driverAllowance, setDriverAllowance] = useState<number | ''>('');
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -53,34 +54,41 @@ export const TransportFormModal: React.FC<TransportFormModalProps> = ({
   const [quickDriverPhone, setQuickDriverPhone] = useState('');
   const [quickDriverSalary, setQuickDriverSalary] = useState<number | ''>('');
 
+  const prevOpenRef = React.useRef(false);
+
   useEffect(() => {
-    if (initialData) {
-      setDate(initialData.date);
-      setTransportType(initialData.transportType);
-      setMaterialName(initialData.materialName || '');
-      setFromLocationId(initialData.fromLocationId);
-      setToLocationId(initialData.toLocationId);
-      setVehicleId(initialData.vehicleId);
-      setDriverId(initialData.driverId);
-      setTons(initialData.tons || '');
-      setRatePerTon(initialData.ratePerTon || '');
-      setFixedPrice(initialData.fixedPrice || '');
-      setNotes(initialData.notes || '');
-    } else {
-      setDate(new Date().toISOString().slice(0, 10));
-      setTransportType('TRIP');
-      setMaterialName('');
-      setFromLocationId(locations[0]?.id || '');
-      setToLocationId(locations[1]?.id || '');
-      setVehicleId(vehicles[0]?.id || '');
-      setDriverId(drivers[0]?.id || '');
-      setTons('');
-      setRatePerTon('');
-      setFixedPrice('');
-      setNotes('');
+    if (isOpen && !prevOpenRef.current) {
+      if (initialData) {
+        setDate(initialData.date);
+        setTransportType(initialData.transportType);
+        setMaterialName(initialData.materialName || '');
+        setFromLocationId(initialData.fromLocationId);
+        setToLocationId(initialData.toLocationId);
+        setVehicleId(initialData.vehicleId);
+        setDriverId(initialData.driverId);
+        setTons(initialData.tons || '');
+        setRatePerTon(initialData.ratePerTon || '');
+        setFixedPrice(initialData.fixedPrice || '');
+        setDriverAllowance(initialData.driverAllowance || '');
+        setNotes(initialData.notes || '');
+      } else {
+        setDate(new Date().toISOString().slice(0, 10));
+        setTransportType('TRIP');
+        setMaterialName('');
+        setFromLocationId(locations[0]?.id || '');
+        setToLocationId(locations[1]?.id || locations[0]?.id || '');
+        setVehicleId(vehicles[0]?.id || '');
+        setDriverId(drivers[0]?.id || '');
+        setTons('');
+        setRatePerTon('');
+        setFixedPrice('');
+        setDriverAllowance('');
+        setNotes('');
+      }
+      setErrorMsg(null);
     }
-    setErrorMsg(null);
-  }, [initialData, isOpen, locations, drivers, vehicles]);
+    prevOpenRef.current = isOpen;
+  }, [isOpen, initialData]);
 
   // Handle vehicle selection: auto-bind current assigned driver
   const handleVehicleChange = (selectedVehicleId: string) => {
@@ -122,6 +130,7 @@ export const TransportFormModal: React.FC<TransportFormModalProps> = ({
         tons: transportType === 'TON' ? Number(tons) : undefined,
         ratePerTon: transportType === 'TON' ? Number(ratePerTon) : undefined,
         fixedPrice: transportType === 'TRIP' ? Number(fixedPrice) : undefined,
+        driverAllowance: Number(driverAllowance || 0),
         notes,
       });
       onClose();
@@ -358,7 +367,7 @@ export const TransportFormModal: React.FC<TransportFormModalProps> = ({
                 type="number"
                 value={fixedPrice}
                 onChange={(e) => setFixedPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="Enter trip fixed amount in AED..."
+                placeholder="Enter trip revenue in AED..."
                 className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-bold text-slate-900 font-mono focus:outline-none transition-all duration-200 shadow-sm"
                 required
               />

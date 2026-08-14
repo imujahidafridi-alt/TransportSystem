@@ -34,8 +34,19 @@ export const SelectDropdown: React.FC<SelectDropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
+
+  // Auto smooth-scroll to selected option when opened
+  useEffect(() => {
+    if (isOpen && listContainerRef.current && value) {
+      const selectedEl = listContainerRef.current.querySelector<HTMLElement>('[data-selected="true"]');
+      if (selectedEl) {
+        selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }, [isOpen, value]);
 
   // Synchronously determine direction BEFORE opening or rendering
   const calculateDirection = useCallback((): boolean => {
@@ -109,7 +120,7 @@ export const SelectDropdown: React.FC<SelectDropdownProps> = ({
           isOpen ? 'ring-4 ring-violet-500/15 border-violet-600 bg-white shadow-md' : ''
         }`}
       >
-        <span className="truncate flex items-center gap-2">
+        <span className="truncate flex items-center gap-2 text-xs font-semibold text-slate-900">
           {selectedOption ? (
             <>
               {selectedOption.icon}
@@ -129,48 +140,54 @@ export const SelectDropdown: React.FC<SelectDropdownProps> = ({
       {/* Floating Options Menu Popover */}
       {isOpen && (
         <div
-          className={`absolute left-0 right-0 z-50 bg-white border border-slate-200/80 rounded-2xl py-1.5 min-w-full max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 shadow-[0_12px_35px_rgba(108,92,231,0.18)] ${
+          className={`absolute left-0 z-50 bg-white border border-slate-200/90 rounded-2xl min-w-full w-max max-w-xs md:max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-150 shadow-[0_12px_35px_rgba(108,92,231,0.18)] ${
             openUpward
               ? 'bottom-full mb-2 origin-bottom'
               : 'top-full mt-2 origin-top'
           }`}
         >
-          {options.length === 0 ? (
-            <div className="px-4 py-3 text-xs text-slate-400 font-medium text-center">
-              No options available
-            </div>
-          ) : (
-            <div className="px-1 space-y-0.5">
-              {options.map((opt) => {
-                const isSelected = opt.value === value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => handleSelect(opt.value)}
-                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all duration-150 flex items-center justify-between gap-2.5 ${
-                      isSelected
-                        ? 'bg-violet-50 text-violet-700 font-bold'
-                        : 'text-slate-700 hover:bg-slate-50 font-semibold'
-                    }`}
-                  >
-                    <span className="truncate flex items-center gap-2">
-                      {opt.icon}
-                      <span className="truncate">{opt.label}</span>
-                    </span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {opt.badge && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100/90 text-slate-600 border border-slate-200/60">
-                          {opt.badge}
-                        </span>
-                      )}
-                      {isSelected && <Check className="w-3.5 h-3.5 text-violet-600 stroke-[2.5] shrink-0" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <div
+            ref={listContainerRef}
+            className="max-h-60 dropdown-smooth-scroll p-1.5 overscroll-contain"
+          >
+            {options.length === 0 ? (
+              <div className="px-4 py-3 text-xs text-slate-400 font-medium text-center">
+                No options available
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {options.map((opt) => {
+                  const isSelected = opt.value === value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      data-selected={isSelected ? 'true' : undefined}
+                      onClick={() => handleSelect(opt.value)}
+                      className={`w-full px-3 py-2 text-xs rounded-xl transition-all duration-150 flex items-center justify-between gap-3 text-left ${
+                        isSelected
+                          ? 'bg-violet-50 text-violet-700 font-bold shadow-2xs'
+                          : 'text-slate-700 hover:bg-slate-50 font-semibold'
+                      }`}
+                    >
+                      <span className="whitespace-nowrap flex items-center gap-2">
+                        {opt.icon}
+                        <span className="whitespace-nowrap">{opt.label}</span>
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0 ml-auto">
+                        {opt.badge && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100/90 text-slate-600 border border-slate-200/60 whitespace-nowrap">
+                            {opt.badge}
+                          </span>
+                        )}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-violet-600 stroke-[2.5] shrink-0" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

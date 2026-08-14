@@ -37,9 +37,16 @@ const api = {
   calculateDriverPayroll: (driverId: string, salaryPeriod: string) => ipcRenderer.invoke('salaries:calculate-payroll', { driverId, salaryPeriod }),
   createSalaryRecord: (data: any) => ipcRenderer.invoke('salaries:create', data),
   updateSalaryStatus: (id: string, status: string, date?: string) => ipcRenderer.invoke('salaries:update-status', { id, status, date }),
-  generatePayrollDraft: (period: string, createdBy?: string) => ipcRenderer.invoke('salaries:generate-draft', { period, createdBy }),
+  generatePayrollDraft: (period: string, ratePerTrip?: number, createdBy?: string) =>
+    ipcRenderer.invoke('salaries:generate-draft', { period, ratePerTrip, createdBy }),
+  updateSalaryTripRate: (id: string, ratePerTrip: number) =>
+    ipcRenderer.invoke('salaries:update-trip-rate', { id, ratePerTrip }),
+  batchUpdateTripRate: (period: string, ratePerTrip: number) =>
+    ipcRenderer.invoke('salaries:batch-update-trip-rate', { period, ratePerTrip }),
   finalizePayroll: (period: string, salaryRecordIds?: string[], finalizedBy?: string) => ipcRenderer.invoke('salaries:finalize', { period, salaryRecordIds, finalizedBy }),
   markSalariesPaid: (payload: { salaryRecordIds: string[]; paymentDate: string; paymentMethod: string; paymentReference?: string; paidBy: string }) => ipcRenderer.invoke('salaries:mark-paid', payload),
+  getSalaryById: (id: string) => ipcRenderer.invoke('salaries:get-by-id', id),
+  getSalaryAdjustments: (salaryRecordId: string) => ipcRenderer.invoke('salaries:get-adjustments', salaryRecordId),
   addSalaryAdjustment: (data: { salaryRecordId: string; adjustmentType: 'BONUS' | 'DEDUCTION' | 'ADVANCE'; amount: number; reason: string; createdBy?: string }) => ipcRenderer.invoke('salaries:add-adjustment', data),
   deleteSalaryAdjustment: (id: string) => ipcRenderer.invoke('salaries:delete-adjustment', id),
   getMasterPayrollSummary: (period: string) => ipcRenderer.invoke('salaries:master-summary', period),

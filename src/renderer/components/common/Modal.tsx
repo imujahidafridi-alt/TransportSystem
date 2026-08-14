@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -7,7 +7,15 @@ export interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+}
+
+// Global modal stack to hide parent modals when a child/sub-modal opens
+let globalModalStack: string[] = [];
+const stackSubscribers = new Set<() => void>();
+
+function notifyStackChange() {
+  stackSubscribers.forEach((cb) => cb());
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -21,9 +29,41 @@ export const Modal: React.FC<ModalProps> = ({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  // 1. Initial Auto-Focus on Modal Open (runs only once upon opening)
+  const idRef = useRef<string>(`modal-${Math.random().toString(36).slice(2, 9)}`);
+  const modalId = idRef.current;
+
+  const [isTopModal, setIsTopModal] = useState(true);
+
+  // Track global modal stack position
   useEffect(() => {
-    if (!isOpen) return;
+    if (isOpen) {
+      // Add this modal to the top of the stack
+      globalModalStack = [...globalModalStack.filter((id) => id !== modalId), modalId];
+      notifyStackChange();
+    } else {
+      // Remove this modal from the stack
+      globalModalStack = globalModalStack.filter((id) => id !== modalId);
+      notifyStackChange();
+    }
+
+    const updateStackState = () => {
+      const isTop = globalModalStack.length > 0 && globalModalStack[globalModalStack.length - 1] === modalId;
+      setIsTopModal(isTop);
+    };
+
+    stackSubscribers.add(updateStackState);
+    updateStackState();
+
+    return () => {
+      globalModalStack = globalModalStack.filter((id) => id !== modalId);
+      stackSubscribers.delete(updateStackState);
+      notifyStackChange();
+    };
+  }, [isOpen, modalId]);
+
+  // 1. Auto-Focus when modal opens OR when it becomes top-modal again (after sub-modal closes)
+  useEffect(() => {
+    if (!isOpen || !isTopModal) return;
 
     const timer = setTimeout(() => {
       // If focus is already inside modal, do not disrupt the user
@@ -52,11 +92,11 @@ export const Modal: React.FC<ModalProps> = ({
     }, 60);
 
     return () => clearTimeout(timer);
-  }, [isOpen]);
+  }, [isOpen, isTopModal]);
 
-  // 2. Keyboard Trap & Enter Key Navigation
+  // 2. Keyboard Trap & Enter Key Navigation (Only active on the topmost modal)
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !isTopModal) return;
 
     const getFocusables = (): HTMLElement[] => {
       if (!modalRef.current) return [];
@@ -79,7 +119,7 @@ export const Modal: React.FC<ModalProps> = ({
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Escape: Close modal
+      // Escape: Close topmost modal
       if (e.key === 'Escape') {
         e.preventDefault();
         onCloseRef.current();
@@ -131,7 +171,7 @@ export const Modal: React.FC<ModalProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, isTopModal]);
 
   if (!isOpen) return null;
 
@@ -141,10 +181,16 @@ export const Modal: React.FC<ModalProps> = ({
     lg: 'max-w-lg',
     xl: 'max-w-xl',
     '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
   }[maxWidth];
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 select-none">
+    <div
+      className={`fixed inset-0 z-[999] flex items-center justify-center p-4 select-none transition-all duration-150 ${
+        isTopModal ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'
+      }`}
+      aria-hidden={!isTopModal}
+    >
       {/* Full-Window Clean Backdrop covering Header + Sidebar + Main */}
       <div
         className="fixed inset-0 bg-slate-900/30 transition-opacity animate-in fade-in duration-150"

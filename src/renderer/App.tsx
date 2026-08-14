@@ -68,7 +68,7 @@ export const App: React.FC = () => {
           <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
             <Header activeTabTitle={getTabTitle(activeTab)} />
 
-            <main className="flex-1 overflow-y-auto relative">
+            <main className="flex-1 smooth-scroll relative overscroll-contain">
               {/* Keep-Alive Persistent Module Containers: Zero layout shifts, instant tab switching, 100% filter/scroll preservation */}
               <div className={activeTab === 'dashboard' ? 'h-full flex flex-col' : 'hidden'}>
                 <DashboardPage onNavigate={(tab) => setActiveTab(tab)} />
