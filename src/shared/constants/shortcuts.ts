@@ -1,4 +1,5 @@
 export const KEYBOARD_SHORTCUTS = [
+  { key: 'Ctrl + B', action: 'Cloud Backup Sync', description: 'Triggers instant off-site cloud backup from anywhere' },
   { key: 'Ctrl + N', action: 'New Transport / Record', description: 'Opens creation form' },
   { key: 'Ctrl + S', action: 'Save Form', description: 'Submits current active form' },
   { key: 'Ctrl + F', action: 'Search', description: 'Focuses on table search input' },

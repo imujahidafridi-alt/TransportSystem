@@ -18,7 +18,7 @@ export const DriversPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [cnicOrLicense, setCnicOrLicense] = useState('');
   const [salaryType, setSalaryType] = useState('MONTHLY');
-  const [basicSalary, setBasicSalary] = useState<number | ''>(6500);
+  const [basicSalary, setBasicSalary] = useState<number | ''>(1500);
   const [status, setStatus] = useState<DriverStatus>('ACTIVE');
   const [notes, setNotes] = useState('');
 
@@ -44,14 +44,14 @@ export const DriversPage: React.FC = () => {
       setPhone('');
       setCnicOrLicense('');
       setSalaryType('MONTHLY');
-      setBasicSalary(6500);
+      setBasicSalary(1500);
       setStatus('ACTIVE');
       setNotes('');
       setIsModalOpen(true);
-    });
+    }, 'drivers');
     const unregisterSearch = registerAction('SEARCH_FOCUS', () => {
       searchInputRef.current?.focus();
-    });
+    }, 'drivers');
     return () => {
       unregisterNew();
       unregisterSearch();
@@ -117,11 +117,6 @@ export const DriversPage: React.FC = () => {
       header: 'CNIC / License',
       className: 'font-mono text-slate-700',
       render: (d) => d.cnicOrLicense || '-',
-    },
-    {
-      key: 'salaryType',
-      header: 'Salary Type',
-      className: 'font-mono text-slate-600',
     },
     {
       key: 'basicSalary',
@@ -192,7 +187,7 @@ export const DriversPage: React.FC = () => {
             setPhone('');
             setCnicOrLicense('');
             setSalaryType('MONTHLY');
-            setBasicSalary(6500);
+            setBasicSalary(1500);
             setStatus('ACTIVE');
             setNotes('');
             setIsModalOpen(true);
@@ -257,40 +252,29 @@ export const DriversPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Salary Type</label>
-              <SelectDropdown
-                options={[
-                  { value: 'MONTHLY', label: 'MONTHLY' },
-                  { value: 'PER_TRIP', label: 'PER TRIP' },
-                ]}
-                value={salaryType}
-                onChange={setSalaryType}
-              />
-            </div>
-
-            <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Basic Salary (AED)</label>
               <input
                 type="number"
                 value={basicSalary}
                 onChange={(e) => setBasicSalary(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="1500"
                 className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-bold font-mono text-slate-900 focus:outline-none transition-all duration-200 shadow-sm"
                 required
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
-            <SelectDropdown
-              options={[
-                { value: 'ACTIVE', label: 'ACTIVE' },
-                { value: 'ON_LEAVE', label: 'ON LEAVE' },
-                { value: 'INACTIVE', label: 'INACTIVE' },
-              ]}
-              value={status}
-              onChange={(val) => setStatus(val as DriverStatus)}
-            />
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Status</label>
+              <SelectDropdown
+                options={[
+                  { value: 'ACTIVE', label: 'ACTIVE' },
+                  { value: 'ON_LEAVE', label: 'ON LEAVE' },
+                  { value: 'INACTIVE', label: 'INACTIVE' },
+                ]}
+                value={status}
+                onChange={(val) => setStatus(val as DriverStatus)}
+              />
+            </div>
           </div>
 
           <div className="pt-2 flex justify-end gap-3">

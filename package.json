@@ -9,9 +9,41 @@
     "build:renderer": "tsc -b && vite build",
     "build:main": "tsc --project tsconfig.main.json",
     "build": "npm run build:renderer && npm run build:main",
+    "dist:win": "npm run build && electron-builder --win",
     "watch:main": "tsc --project tsconfig.main.json -w",
     "start": "electron .",
     "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.transportfleet.system",
+    "productName": "Transport Fleet System",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "public/icon.png",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Transport Fleet System"
+    },
+    "mac": {
+      "icon": "public/icon.png"
+    },
+    "linux": {
+      "icon": "public/icon.png"
+    }
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.750.0",

@@ -33,6 +33,17 @@ export function createDriver(data: {
   notes?: string;
 }): Driver {
   const db = getDb();
+
+  const trimmedName = data.name.trim();
+  if (!trimmedName) {
+    throw new Error('Driver name cannot be empty.');
+  }
+
+  const existing = db.prepare('SELECT id FROM drivers WHERE LOWER(name) = LOWER(?)').get(trimmedName);
+  if (existing) {
+    throw new Error(`Driver '${trimmedName}' already exists.`);
+  }
+
   const id = cryptoRandomUUID();
   const now = new Date().toISOString();
 
@@ -43,7 +54,7 @@ export function createDriver(data: {
 
   stmt.run(
     id,
-    data.name,
+    trimmedName,
     data.phone || null,
     data.cnicOrLicense || null,
     data.salaryType || 'MONTHLY',

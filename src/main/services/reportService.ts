@@ -1,19 +1,47 @@
 import { getDb } from '../database/db';
 import { ReportFilter, Transport } from '../../shared/types';
 
-export interface VehicleProfitabilityReport {
-  vehicleId: string;
-  registrationNumber: string;
+export interface TransactionReportItem extends Transport {}
+
+export interface DriverReportItem {
+  driverId: string;
+  driverName: string;
+  phone: string;
+  cnicOrLicense: string;
   totalTrips: number;
-  totalRevenue: number;
-  fuelExpense: number;
-  maintenanceExpense: number;
-  otherExpense: number;
-  totalExpense: number;
-  netProfit: number;
+  basicSalary: number;
+  latestTransactionDate?: string;
 }
 
-export function getFilteredTransportsReport(filter: ReportFilter): Transport[] {
+export interface VehicleExpenseReportItem {
+  vehicleId: string;
+  registrationNumber: string;
+  vehicleType: string;
+  totalTrips: number;
+  fuelCost: number;
+  maintenanceCost: number;
+  otherExpenses: number;
+  totalVehicleExpense: number;
+}
+
+export interface ProfitAndLossStatement {
+  periodLabel: string;
+  totalTripsCount: number;
+  tripRevenue: number;
+  tonRevenue: number;
+  totalGrossRevenue: number;
+  fuelCost: number;
+  maintenanceCost: number;
+  otherExpenses: number;
+  totalOperatingCosts: number;
+  netProfit: number;
+  profitMarginPercentage: number;
+}
+
+/**
+ * 1. Transaction Reports
+ */
+export function getTransactionReports(filter: ReportFilter): TransactionReportItem[] {
   const db = getDb();
   const conditions: string[] = [];
   const params: (string | number)[] = [];
@@ -42,12 +70,23 @@ export function getFilteredTransportsReport(filter: ReportFilter): Transport[] {
     conditions.push('(t.from_location_id = ? OR t.to_location_id = ?)');
     params.push(filter.locationId, filter.locationId);
   }
+  if (filter.status) {
+    if (filter.status === 'COMPLETED') {
+      conditions.push("t.status != 'CANCELLED'");
+    } else if (filter.status === 'CANCELLED') {
+      conditions.push("t.status = 'CANCELLED'");
+    } else {
+      conditions.push('t.status = ?');
+      params.push(filter.status);
+    }
+  }
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const sql = `
     SELECT 
       t.id, t.transport_no as transportNo, t.date, t.transport_type as transportType,
+      t.material_name as materialName,
       t.from_location_id as fromLocationId, fl.name as fromLocationName,
       t.to_location_id as toLocationId, tl.name as toLocationName,
       t.vehicle_id as vehicleId, v.registration_number as vehicleRegistration,
@@ -61,65 +100,196 @@ export function getFilteredTransportsReport(filter: ReportFilter): Transport[] {
     JOIN locations fl ON t.from_location_id = fl.id
     JOIN locations tl ON t.to_location_id = tl.id
     ${whereClause}
-    ORDER BY t.date DESC
+    ORDER BY t.date DESC, t.created_at DESC
   `;
 
   return db.prepare(sql).all(...params) as Transport[];
 }
 
-export function getVehicleProfitabilityReport(filter: ReportFilter): VehicleProfitabilityReport[] {
+/**
+ * 2. Driver Reports Linked With Each Transaction (For Manual Month-End Commission Calculation)
+ */
+export function getDriverReports(filter: ReportFilter): DriverReportItem[] {
   const db = getDb();
-  const vehicles = db.prepare('SELECT id, registration_number FROM vehicles ORDER BY registration_number ASC').all() as { id: string; registration_number: string }[];
+  let driverWhere = '';
+  const params: string[] = [];
 
-  const results: VehicleProfitabilityReport[] = [];
+  if (filter.driverId) {
+    driverWhere = 'WHERE id = ?';
+    params.push(filter.driverId);
+  }
 
-  for (const veh of vehicles) {
+  const drivers = db.prepare(`SELECT id, name, phone, cnic_or_license, basic_salary FROM drivers ${driverWhere} ORDER BY name ASC`).all(...params) as any[];
+
+  const results: DriverReportItem[] = [];
+
+  for (const d of drivers) {
     let dateFilter = '';
-    const params: string[] = [veh.id];
+    const tripParams: string[] = [d.id];
     if (filter.startDate && filter.endDate) {
       dateFilter = 'AND date >= ? AND date <= ?';
-      params.push(filter.startDate, filter.endDate);
+      tripParams.push(filter.startDate, filter.endDate);
     }
 
     const tripStats = db.prepare(`
-      SELECT COUNT(*) as trips, COALESCE(SUM(total_amount), 0) as rev
+      SELECT COUNT(*) as trips, MAX(date) as lastDate
+      FROM transports
+      WHERE driver_id = ? AND status != 'CANCELLED' ${dateFilter}
+    `).get(...tripParams) as { trips: number; lastDate: string };
+
+    const basicSalary = d.basic_salary || 1500;
+
+    results.push({
+      driverId: d.id,
+      driverName: d.name,
+      phone: d.phone || '-',
+      cnicOrLicense: d.cnic_or_license || '-',
+      totalTrips: tripStats.trips || 0,
+      basicSalary,
+      latestTransactionDate: tripStats.lastDate || '-',
+    });
+  }
+
+  return results;
+}
+
+/**
+ * 3. Expense Report Linked With Vehicle
+ */
+export function getVehicleExpenseReports(filter: ReportFilter): VehicleExpenseReportItem[] {
+  const db = getDb();
+  let vehWhere = '';
+  const params: string[] = [];
+
+  if (filter.vehicleId) {
+    vehWhere = 'WHERE id = ?';
+    params.push(filter.vehicleId);
+  }
+
+  const vehicles = db.prepare(`SELECT id, registration_number, vehicle_type FROM vehicles ${vehWhere} ORDER BY registration_number ASC`).all(...params) as any[];
+
+  const results: VehicleExpenseReportItem[] = [];
+
+  for (const v of vehicles) {
+    let dateFilter = '';
+    const dateParams: string[] = [v.id];
+    if (filter.startDate && filter.endDate) {
+      dateFilter = 'AND date >= ? AND date <= ?';
+      dateParams.push(filter.startDate, filter.endDate);
+    }
+
+    const tripStats = db.prepare(`
+      SELECT COUNT(*) as trips
       FROM transports
       WHERE vehicle_id = ? AND status != 'CANCELLED' ${dateFilter}
-    `).get(...params) as { trips: number; rev: number };
+    `).get(...dateParams) as { trips: number };
 
     const fuelStats = db.prepare(`
       SELECT COALESCE(SUM(total_amount), 0) as fuel
       FROM fuel_records
       WHERE vehicle_id = ? ${dateFilter}
-    `).get(...params) as { fuel: number };
+    `).get(...dateParams) as { fuel: number };
 
     const maintStats = db.prepare(`
       SELECT COALESCE(SUM(amount), 0) as maint
       FROM maintenance_records
       WHERE vehicle_id = ? ${dateFilter}
-    `).get(...params) as { maint: number };
+    `).get(...dateParams) as { maint: number };
 
     const expStats = db.prepare(`
       SELECT COALESCE(SUM(amount), 0) as exp
       FROM vehicle_expenses
       WHERE vehicle_id = ? ${dateFilter}
-    `).get(...params) as { exp: number };
+    `).get(...dateParams) as { exp: number };
 
-    const totalExpense = fuelStats.fuel + maintStats.maint + expStats.exp;
-    const netProfit = tripStats.rev - totalExpense;
+    const fuelCost = fuelStats.fuel || 0;
+    const maintenanceCost = maintStats.maint || 0;
+    const otherExpenses = expStats.exp || 0;
+
+    const totalVehicleExpense = fuelCost + maintenanceCost + otherExpenses;
 
     results.push({
-      vehicleId: veh.id,
-      registrationNumber: veh.registration_number,
-      totalTrips: tripStats.trips,
-      totalRevenue: tripStats.rev,
-      fuelExpense: fuelStats.fuel,
-      maintenanceExpense: maintStats.maint,
-      otherExpense: expStats.exp,
-      totalExpense,
-      netProfit,
+      vehicleId: v.id,
+      registrationNumber: v.registration_number,
+      vehicleType: v.vehicle_type || 'Truck',
+      totalTrips: tripStats.trips || 0,
+      fuelCost,
+      maintenanceCost,
+      otherExpenses,
+      totalVehicleExpense,
     });
   }
 
   return results;
+}
+
+/**
+ * 4. Profit and Loss Statement (P&L)
+ */
+export function getProfitAndLossStatement(filter: ReportFilter): ProfitAndLossStatement {
+  const db = getDb();
+  let dateCondition = '';
+  const params: string[] = [];
+
+  if (filter.startDate && filter.endDate) {
+    dateCondition = 'WHERE date >= ? AND date <= ?';
+    params.push(filter.startDate, filter.endDate);
+  }
+
+  // 1. Revenue Streams
+  const tripRevRow = db.prepare(`
+    SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as rev
+    FROM transports
+    WHERE transport_type = 'TRIP' AND status != 'CANCELLED' ${filter.startDate ? 'AND date >= ? AND date <= ?' : ''}
+  `).get(...(filter.startDate ? [filter.startDate, filter.endDate] : [])) as { count: number; rev: number };
+
+  const tonRevRow = db.prepare(`
+    SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as rev
+    FROM transports
+    WHERE transport_type = 'TON' AND status != 'CANCELLED' ${filter.startDate ? 'AND date >= ? AND date <= ?' : ''}
+  `).get(...(filter.startDate ? [filter.startDate, filter.endDate] : [])) as { count: number; rev: number };
+
+  const totalTripsCount = (tripRevRow?.count || 0) + (tonRevRow?.count || 0);
+  const tripRevenue = tripRevRow?.rev || 0;
+  const tonRevenue = tonRevRow?.rev || 0;
+  const totalGrossRevenue = tripRevenue + tonRevenue;
+
+  // 2. Operating Expenses (Fuel + Maintenance + Vehicle Expenses)
+  const fuelRow = db.prepare(`
+    SELECT COALESCE(SUM(total_amount), 0) as fuel FROM fuel_records ${dateCondition}
+  `).get(...params) as { fuel: number };
+
+  const maintRow = db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) as maint FROM maintenance_records ${dateCondition}
+  `).get(...params) as { maint: number };
+
+  const expRow = db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) as exp FROM vehicle_expenses ${dateCondition}
+  `).get(...params) as { exp: number };
+
+  const fuelCost = fuelRow?.fuel || 0;
+  const maintenanceCost = maintRow?.maint || 0;
+  const otherExpenses = expRow?.exp || 0;
+
+  const totalOperatingCosts = fuelCost + maintenanceCost + otherExpenses;
+  const netProfit = totalGrossRevenue - totalOperatingCosts;
+  const profitMarginPercentage = totalGrossRevenue > 0 ? (netProfit / totalGrossRevenue) * 100 : 0;
+
+  const periodLabel = (filter.startDate && filter.endDate)
+    ? `${filter.startDate} to ${filter.endDate}`
+    : 'All Time Financial Performance';
+
+  return {
+    periodLabel,
+    totalTripsCount,
+    tripRevenue,
+    tonRevenue,
+    totalGrossRevenue,
+    fuelCost,
+    maintenanceCost,
+    otherExpenses,
+    totalOperatingCosts,
+    netProfit,
+    profitMarginPercentage: parseFloat(profitMarginPercentage.toFixed(2)),
+  };
 }

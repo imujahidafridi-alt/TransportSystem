@@ -12,6 +12,7 @@ import { DriversPage } from './pages/DriversPage';
 import { LocationsPage } from './pages/LocationsPage';
 import { ExpensesPage } from './pages/ExpensesPage';
 import { FuelPage } from './pages/FuelPage';
+import { MaintenancePage } from './pages/MaintenancePage';
 import { DriverSalariesPage } from './pages/DriverSalariesPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { BackupsPage } from './pages/BackupsPage';
@@ -50,7 +51,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <KeyboardShortcutProvider>
+    <KeyboardShortcutProvider activeTab={activeTab}>
       <div className="flex h-screen bg-[#F4F5FA] text-[#1E1B4B] font-sans antialiased overflow-hidden select-none">
         {/* Floating Sidebar */}
         <Sidebar
@@ -63,18 +64,51 @@ export const App: React.FC = () => {
         <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
           <Header activeTabTitle={getTabTitle(activeTab)} />
 
-          <main className="flex-1 overflow-y-auto">
-            {activeTab === 'dashboard' && <DashboardPage />}
-            {activeTab === 'transports' && <TransportsPage />}
-            {activeTab === 'vehicles' && <VehiclesPage />}
-            {activeTab === 'drivers' && <DriversPage />}
-            {activeTab === 'locations' && <LocationsPage />}
-            {activeTab === 'expenses' && <ExpensesPage />}
-            {activeTab === 'fuel' && <FuelPage />}
-            {activeTab === 'maintenance' && <ExpensesPage />}
-            {activeTab === 'salaries' && <DriverSalariesPage />}
-            {activeTab === 'reports' && <ReportsPage />}
-            {activeTab === 'backups' && <BackupsPage />}
+          <main className="flex-1 overflow-y-auto relative">
+            {/* Keep-Alive Persistent Module Containers: Zero layout shifts, instant tab switching, 100% filter/scroll preservation */}
+            <div className={activeTab === 'dashboard' ? 'h-full flex flex-col' : 'hidden'}>
+              <DashboardPage onNavigate={(tab) => setActiveTab(tab)} />
+            </div>
+
+            <div className={activeTab === 'transports' ? 'h-full flex flex-col' : 'hidden'}>
+              <TransportsPage />
+            </div>
+
+            <div className={activeTab === 'vehicles' ? 'h-full flex flex-col' : 'hidden'}>
+              <VehiclesPage />
+            </div>
+
+            <div className={activeTab === 'drivers' ? 'h-full flex flex-col' : 'hidden'}>
+              <DriversPage />
+            </div>
+
+            <div className={activeTab === 'locations' ? 'h-full flex flex-col' : 'hidden'}>
+              <LocationsPage />
+            </div>
+
+            <div className={activeTab === 'expenses' ? 'h-full flex flex-col' : 'hidden'}>
+              <ExpensesPage />
+            </div>
+
+            <div className={activeTab === 'fuel' ? 'h-full flex flex-col' : 'hidden'}>
+              <FuelPage />
+            </div>
+
+            <div className={activeTab === 'maintenance' ? 'h-full flex flex-col' : 'hidden'}>
+              <MaintenancePage />
+            </div>
+
+            <div className={activeTab === 'salaries' ? 'h-full flex flex-col' : 'hidden'}>
+              <DriverSalariesPage />
+            </div>
+
+            <div className={activeTab === 'reports' ? 'h-full flex flex-col' : 'hidden'}>
+              <ReportsPage />
+            </div>
+
+            <div className={activeTab === 'backups' ? 'h-full flex flex-col' : 'hidden'}>
+              <BackupsPage />
+            </div>
           </main>
         </div>
 

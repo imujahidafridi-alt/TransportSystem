@@ -43,6 +43,32 @@ export function initDatabase(): Database.Database {
     // Column already exists
   }
 
+  // Migration: Ensure driver_allowance column exists in transports
+  try {
+    dbInstance.exec('ALTER TABLE transports ADD COLUMN driver_allowance REAL DEFAULT 0;');
+  } catch {
+    // Column already exists
+  }
+
+  // Migration: Ensure per_trip_rate column exists in drivers
+  try {
+    dbInstance.exec('ALTER TABLE drivers ADD COLUMN per_trip_rate REAL NOT NULL DEFAULT 0;');
+  } catch {
+    // Column already exists
+  }
+
+  // Migration: Ensure total_trips & trip_earnings exist in driver_salary_records
+  try {
+    dbInstance.exec('ALTER TABLE driver_salary_records ADD COLUMN total_trips INTEGER NOT NULL DEFAULT 0;');
+  } catch {
+    // Column already exists
+  }
+  try {
+    dbInstance.exec('ALTER TABLE driver_salary_records ADD COLUMN trip_earnings REAL NOT NULL DEFAULT 0;');
+  } catch {
+    // Column already exists
+  }
+
   // Initialize default system settings if not present
   const checkSetting = dbInstance.prepare("SELECT value FROM system_settings WHERE key = ?").get('currency_symbol');
   if (!checkSetting) {

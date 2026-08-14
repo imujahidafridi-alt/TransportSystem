@@ -60,6 +60,7 @@ export interface Transport {
   ratePerTon?: number;
   fixedPrice?: number;
   totalAmount: number;
+  driverAllowance?: number;
   status: TransportStatus;
   notes?: string;
   createdAt: string;
@@ -120,6 +121,8 @@ export interface DriverSalaryRecord {
   driverName?: string;
   salaryPeriod: string; // e.g. "2026-08"
   basicSalary: number;
+  totalTrips?: number;
+  tripEarnings?: number;
   allowances: number;
   deductions: number;
   advance: number;
@@ -175,6 +178,7 @@ export interface ReportFilter {
   driverId?: string;
   transportType?: TransportType;
   locationId?: string;
+  status?: TransportStatus;
 }
 
 export interface LocalBackupItem {
@@ -194,4 +198,5 @@ export interface BackupStatusSummary {
   formattedTotalStorage: string;
   backupsDir: string;
   cloudR2Configured: boolean;
+  r2BucketName?: string;
 }

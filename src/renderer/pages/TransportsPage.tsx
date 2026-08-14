@@ -40,10 +40,10 @@ export const TransportsPage: React.FC = () => {
     const unregisterNew = registerAction('NEW_RECORD', () => {
       setEditingTransport(null);
       setIsModalOpen(true);
-    });
+    }, 'transports');
     const unregisterSearch = registerAction('SEARCH_FOCUS', () => {
       document.getElementById('transport-search-input')?.focus();
-    });
+    }, 'transports');
     return () => {
       unregisterNew();
       unregisterSearch();
@@ -111,6 +111,7 @@ export const TransportsPage: React.FC = () => {
         locations={locations}
         drivers={drivers}
         vehicles={vehicles}
+        onRefreshMasterData={loadData}
       />
     </div>
   );

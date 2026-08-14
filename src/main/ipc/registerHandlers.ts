@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import * as locationService from '../services/locationService';
 import * as driverService from '../services/driverService';
 import * as vehicleService from '../services/vehicleService';
@@ -9,8 +9,16 @@ import * as dashboardService from '../services/dashboardService';
 import * as reportService from '../services/reportService';
 import * as backupService from '../backup/backupService';
 import * as syncQueue from '../sync/syncQueue';
+import { openPdfPreviewWindow } from '../pdf/pdfWindowService';
+import { buildReportPdfHtml, buildDriverLedgerPdfHtml, buildPnlPdfHtml } from '../pdf/pdfTemplates';
 
 export function registerIpcHandlers(): void {
+  // System
+  ipcMain.handle('system:relaunch', () => {
+    app.relaunch();
+    app.exit(0);
+  });
+
   // Locations
   ipcMain.handle('locations:get-all', (_, search?: string) => locationService.getAllLocations(search));
   ipcMain.handle('locations:create', (_, data) => locationService.createLocation(data));
@@ -44,19 +52,59 @@ export function registerIpcHandlers(): void {
 
   // Salaries
   ipcMain.handle('salaries:get-all', (_, driverId?: string) => salaryService.getAllSalaries(driverId));
+  ipcMain.handle('salaries:calculate-payroll', (_, { driverId, salaryPeriod }) => salaryService.calculateDriverPayrollForPeriod(driverId, salaryPeriod));
   ipcMain.handle('salaries:create', (_, data) => salaryService.createSalaryRecord(data));
   ipcMain.handle('salaries:update-status', (_, { id, status, date }) => salaryService.updateSalaryStatus(id, status, date));
 
   // Dashboard & Reports
   ipcMain.handle('dashboard:summary', (_, { period, customStart, customEnd }) => dashboardService.getDashboardSummary(period, customStart, customEnd));
-  ipcMain.handle('reports:transports', (_, filter) => reportService.getFilteredTransportsReport(filter));
-  ipcMain.handle('reports:vehicle-profitability', (_, filter) => reportService.getVehicleProfitabilityReport(filter));
+  ipcMain.handle('reports:transactions', (_, filter) => reportService.getTransactionReports(filter));
+  ipcMain.handle('reports:drivers', (_, filter) => reportService.getDriverReports(filter));
+  ipcMain.handle('reports:vehicle-expenses', (_, filter) => reportService.getVehicleExpenseReports(filter));
+  ipcMain.handle('reports:pnl-statement', (_, filter) => reportService.getProfitAndLossStatement(filter));
 
   // Backup & Sync
   ipcMain.handle('backup:create', () => backupService.createDatabaseBackup());
   ipcMain.handle('backup:list', () => backupService.listLocalBackups());
-  ipcMain.handle('backup:restore', (_, filePath: string) => backupService.restoreDatabaseBackup(filePath));
+  ipcMain.handle('backup:restore', async (event, filePath: string) => {
+    const res = await backupService.restoreDatabaseBackup(filePath);
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+      setTimeout(() => {
+        win.reload();
+      }, 500);
+    }
+    return res;
+  });
   ipcMain.handle('backup:export', (_, filePath?: string) => backupService.exportBackupToCustomLocation(filePath));
   ipcMain.handle('backup:summary', () => backupService.getBackupStatusSummary());
   ipcMain.handle('sync:queue-status', () => syncQueue.getSyncQueueStatus());
+
+  // PDF Preview & Printing Service
+  ipcMain.handle('pdf:open-report-preview', (_, { title, description, columns, data, kpis }) => {
+    const html = buildReportPdfHtml(title, description, columns, data, kpis);
+    openPdfPreviewWindow(title, html);
+  });
+
+  ipcMain.handle('pdf:open-driver-ledger-preview', (_, data) => {
+    const html = buildDriverLedgerPdfHtml(
+      data.driverName,
+      data.period,
+      data.basicSalary,
+      data.completedTripsCount,
+      data.totalTripCommission,
+      data.allowances,
+      data.deductions,
+      data.advance,
+      data.netSalary,
+      data.paymentStatus,
+      data.trips
+    );
+    openPdfPreviewWindow(`Driver Ledger - ${data.driverName} (${data.period})`, html);
+  });
+
+  ipcMain.handle('pdf:open-pnl-preview', (_, pnl) => {
+    const html = buildPnlPdfHtml(pnl);
+    openPdfPreviewWindow(`Profit & Loss Statement - ${pnl.periodLabel}`, html);
+  });
 }

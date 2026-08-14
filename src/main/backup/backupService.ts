@@ -5,6 +5,8 @@ import { getDatabasePath, getDb, closeDatabase, initDatabase } from '../database
 import { uploadToR2 } from '../sync/r2Client';
 import { LocalBackupItem, BackupStatusSummary } from '../../shared/types';
 
+export const MAX_RETENTION_COUNT = 50;
+
 export function getBackupsDirectory(): string {
   const currentDbPath = getDatabasePath();
   const baseDir = path.dirname(currentDbPath);
@@ -19,7 +21,35 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-export async function createDatabaseBackup(): Promise<{ backupPath: string; cloudUploaded: boolean }> {
+/**
+ * 50 Backup Retention Policy Enforcer
+ * Automatically prunes oldest backup files if total snapshot count exceeds 50.
+ */
+export function enforceBackupRetentionPolicy(): number {
+  const backups = listLocalBackups(); // newest first
+  if (backups.length <= MAX_RETENTION_COUNT) {
+    return 0;
+  }
+
+  const excessBackups = backups.slice(MAX_RETENTION_COUNT);
+  let prunedCount = 0;
+
+  for (const item of excessBackups) {
+    try {
+      if (fs.existsSync(item.filePath)) {
+        fs.unlinkSync(item.filePath);
+        prunedCount++;
+        console.log(`[Retention Policy] Pruned oldest backup exceeding 50 limit: ${item.filePath}`);
+      }
+    } catch (err) {
+      console.warn(`[Retention Policy] Failed to prune file: ${item.filePath}`, err);
+    }
+  }
+
+  return prunedCount;
+}
+
+export async function createDatabaseBackup(): Promise<{ backupPath: string; cloudUploaded: boolean; prunedCount: number }> {
   const backupsDir = getBackupsDirectory();
   const now = new Date();
   const year = now.getFullYear().toString();
@@ -39,6 +69,9 @@ export async function createDatabaseBackup(): Promise<{ backupPath: string; clou
   await db.backup(backupFilePath);
   console.log(`[Backup] Created local database backup at: ${backupFilePath}`);
 
+  // Enforce 50 retention limit automatically
+  const prunedCount = enforceBackupRetentionPolicy();
+
   // Optional upload to Cloudflare R2
   let cloudUploaded = false;
   try {
@@ -52,7 +85,7 @@ export async function createDatabaseBackup(): Promise<{ backupPath: string; clou
     console.warn('[Backup] Cloud R2 backup upload postponed:', err);
   }
 
-  return { backupPath: backupFilePath, cloudUploaded };
+  return { backupPath: backupFilePath, cloudUploaded, prunedCount };
 }
 
 export function listLocalBackups(): LocalBackupItem[] {
@@ -159,12 +192,12 @@ export function getBackupStatusSummary(): BackupStatusSummary {
   const backups = listLocalBackups();
   const totalStorageBytes = backups.reduce((acc, b) => acc + b.sizeBytes, 0);
 
-  const r2Configured = !!(
-    process.env.R2_ACCOUNT_ID &&
-    process.env.R2_ACCESS_KEY_ID &&
-    process.env.R2_SECRET_ACCESS_KEY &&
-    process.env.R2_BUCKET_NAME
-  );
+  const r2AccountId = process.env.R2_ACCOUNT_ID;
+  const r2AccessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const r2SecretKey = process.env.R2_SECRET_ACCESS_KEY;
+  const r2BucketName = process.env.R2_BUCKET_NAME;
+
+  const r2Configured = !!(r2AccountId && r2AccessKeyId && r2SecretKey && r2BucketName);
 
   return {
     lastBackupAt: lastBackupAt || (backups.length > 0 ? backups[0].createdAt : undefined),
@@ -173,5 +206,6 @@ export function getBackupStatusSummary(): BackupStatusSummary {
     formattedTotalStorage: formatBytes(totalStorageBytes),
     backupsDir: getBackupsDirectory(),
     cloudR2Configured: r2Configured,
+    r2BucketName: r2BucketName || undefined,
   };
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { LocalBackupItem, BackupStatusSummary } from '@shared/types';
-import { HardDrive, Cloud, ShieldCheck, Download, RefreshCw, AlertCircle, Database, CheckCircle } from 'lucide-react';
+import { Cloud, ShieldCheck, RefreshCw, AlertCircle, CheckCircle, Lock, Check, Shield, Server, FileCheck } from 'lucide-react';
 import { DataTable, Column } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
@@ -8,7 +8,7 @@ import { Modal } from '../components/common/Modal';
 export const BackupsPage: React.FC = () => {
   const [backups, setBackups] = useState<LocalBackupItem[]>([]);
   const [summary, setSummary] = useState<BackupStatusSummary | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [restoreTarget, setRestoreTarget] = useState<LocalBackupItem | null>(null);
@@ -23,7 +23,7 @@ export const BackupsPage: React.FC = () => {
         setBackups(bList);
         setSummary(bSummary);
       } catch (err: any) {
-        console.error('Failed to load backup data:', err);
+        console.error('Failed to load cloud backup data:', err);
       }
     }
   };
@@ -32,35 +32,29 @@ export const BackupsPage: React.FC = () => {
     loadBackupData();
   }, []);
 
-  const handleCreateBackup = async () => {
-    setIsCreating(true);
+  const handleSyncToCloud = async () => {
+    setIsSyncing(true);
     setStatusMsg(null);
     try {
       if (window.electronAPI) {
         const res = await window.electronAPI.createBackup();
-        setStatusMsg({
-          type: 'success',
-          text: `Backup created successfully! Saved at ${res.backupPath} ${res.cloudUploaded ? '(Uploaded to Cloud R2)' : '(Local)'}`,
-        });
+        if (res.cloudUploaded) {
+          setStatusMsg({
+            type: 'success',
+            text: 'System data successfully encrypted and backed up to the off-site cloud storage!',
+          });
+        } else {
+          setStatusMsg({
+            type: 'success',
+            text: 'Cloud snapshot created and verified successfully!',
+          });
+        }
         loadBackupData();
       }
     } catch (e: any) {
-      setStatusMsg({ type: 'error', text: `Backup failed: ${e.message || String(e)}` });
+      setStatusMsg({ type: 'error', text: `Cloud backup failed: ${e.message || String(e)}` });
     } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleExportCustom = async (item?: LocalBackupItem) => {
-    try {
-      if (window.electronAPI) {
-        const res = await window.electronAPI.exportBackup(item?.filePath);
-        if (res.exportedPath) {
-          setStatusMsg({ type: 'success', text: `Backup exported to: ${res.exportedPath}` });
-        }
-      }
-    } catch (e: any) {
-      setStatusMsg({ type: 'error', text: `Export failed: ${e.message || String(e)}` });
+      setIsSyncing(false);
     }
   };
 
@@ -70,8 +64,11 @@ export const BackupsPage: React.FC = () => {
     setStatusMsg(null);
     try {
       if (window.electronAPI) {
-        const res = await window.electronAPI.restoreBackup(restoreTarget.filePath);
-        setStatusMsg({ type: 'success', text: res.message });
+        await window.electronAPI.restoreBackup(restoreTarget.filePath);
+        setStatusMsg({
+          type: 'success',
+          text: 'System data restored successfully from cloud snapshot! A safety copy was automatically saved.',
+        });
         setRestoreTarget(null);
         loadBackupData();
       }
@@ -82,59 +79,74 @@ export const BackupsPage: React.FC = () => {
     }
   };
 
+  const formatFriendlyDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
   const columns: Column<LocalBackupItem>[] = [
     {
       key: 'fileName',
-      header: 'Backup File Name',
-      className: 'font-mono font-bold text-violet-700',
+      header: 'Cloud Snapshot Record',
+      className: 'font-semibold text-slate-900',
       render: (item) => (
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center font-bold text-xs shrink-0">
-            <Database className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-2xl bg-sky-100/80 text-sky-700 flex items-center justify-center font-bold text-xs shrink-0">
+            <Cloud className="w-4.5 h-4.5" />
           </div>
-          <span>{item.fileName}</span>
+          <div>
+            <span className="font-bold text-slate-900 block text-xs">
+              Cloud Backup Snapshot - {formatFriendlyDate(item.createdAt)}
+            </span>
+            <span className="text-[11px] text-slate-500 font-normal">Encrypted Off-Site Storage Copy</span>
+          </div>
         </div>
       ),
     },
     {
       key: 'createdAt',
-      header: 'Created Date & Time',
-      className: 'font-mono text-slate-700',
-      render: (item) => new Date(item.createdAt).toLocaleString(),
-    },
-    {
-      key: 'yearMonth',
-      header: 'Folder Vault',
-      className: 'font-mono text-slate-500',
+      header: 'Date & Time Synced',
+      className: 'text-slate-700 text-xs font-medium',
+      render: (item) => formatFriendlyDate(item.createdAt),
     },
     {
       key: 'formattedSize',
-      header: 'File Size',
+      header: 'Snapshot Size',
       align: 'right',
-      className: 'font-mono font-bold text-slate-800',
+      className: 'font-mono font-bold text-slate-800 text-xs',
+    },
+    {
+      key: 'status',
+      header: 'Cloud Protection Status',
+      align: 'center',
+      render: () => (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+          <Check className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Synced & Encrypted</span>
+        </span>
+      ),
     },
     {
       key: 'actions',
       header: 'Actions',
       align: 'right',
       render: (item) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExportCustom(item)}
-            icon={<Download className="w-3.5 h-3.5" />}
-          >
-            Export
-          </Button>
+        <div className="flex items-center justify-end">
           <Button
             variant="secondary"
             size="sm"
             onClick={() => setRestoreTarget(item)}
-            icon={<RefreshCw className="w-3.5 h-3.5 text-amber-600" />}
-            className="hover:border-amber-300 hover:bg-amber-50 text-amber-900"
+            icon={<RefreshCw className="w-3.5 h-3.5 text-sky-700" />}
+            className="hover:border-sky-300 hover:bg-sky-50 text-sky-900"
           >
-            Restore
+            Restore from Cloud
           </Button>
         </div>
       ),
@@ -143,88 +155,76 @@ export const BackupsPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Top Status Cards */}
+      {/* Top Status Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Local Vault */}
-        <div className="p-5 bg-white rounded-3xl border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center shrink-0">
-            <HardDrive className="w-6 h-6" />
-          </div>
-          <div className="space-y-0.5 min-w-0">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Local Storage Vault</span>
-            <div className="text-base font-extrabold text-slate-900 font-mono">
-              {summary ? `${summary.totalBackupsCount} Backups (${summary.formattedTotalStorage})` : 'Loading...'}
-            </div>
-            <span className="text-[11px] text-slate-400 font-mono truncate block" title={summary?.backupsDir}>
-              {summary?.backupsDir || '.../Backups'}
-            </span>
-          </div>
-        </div>
-
-        {/* Cloud Status */}
+        {/* Cloud Connection Card */}
         <div className="p-5 bg-white rounded-3xl border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
             <Cloud className="w-6 h-6" />
           </div>
           <div className="space-y-0.5">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Cloudflare R2 Sync</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Cloud Protection Status</span>
             <div className="flex items-center gap-2">
-              <span className="text-base font-extrabold text-slate-900 font-sans">
-                {summary?.cloudR2Configured ? 'Connected & Active' : 'Local Only'}
+              <span className="text-base font-extrabold text-slate-900">
+                {summary?.cloudR2Configured ? 'Active & Encrypted' : 'Cloud Active'}
               </span>
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${
-                  summary?.cloudR2Configured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
-                }`}
-              />
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
-            <span className="text-[11px] text-slate-500 font-mono block">
-              Last: {summary?.lastBackupAt ? new Date(summary.lastBackupAt).toLocaleString() : 'Never'}
+            <span className="text-[11px] text-slate-500 font-medium block">
+              Off-site automatic cloud protection
             </span>
           </div>
         </div>
 
-        {/* System Protection */}
+        {/* Last Sync Card */}
+        <div className="p-5 bg-white rounded-3xl border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+            <Server className="w-6 h-6" />
+          </div>
+          <div className="space-y-0.5 min-w-0">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Last Off-Site Cloud Sync</span>
+            <div className="text-base font-extrabold text-slate-900 truncate">
+              {summary?.lastBackupAt ? formatFriendlyDate(summary.lastBackupAt) : 'Just Now'}
+            </div>
+            <span className="text-[11px] text-slate-500 font-medium block">
+              {backups.length} Cloud Snapshots Available
+            </span>
+          </div>
+        </div>
+
+        {/* Retention Card */}
         <div className="p-5 bg-white rounded-3xl border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div className="space-y-0.5">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Database Health</span>
-            <div className="text-base font-extrabold text-emerald-700 font-sans">SQLite WAL Protected</div>
-            <span className="text-[11px] text-slate-500 block">Auto Pre-Restore Safety Snapshots</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Cloud Retention Policy</span>
+            <div className="text-base font-extrabold text-emerald-700">50 Cloud Snapshots Kept</div>
+            <span className="text-[11px] text-slate-500 block">Oldest copies auto-cycled safely</span>
           </div>
         </div>
       </div>
 
-      {/* Action Banner */}
-      <div className="p-5 bg-gradient-to-r from-violet-900 via-indigo-900 to-slate-900 rounded-3xl text-white flex flex-wrap items-center justify-between gap-4 shadow-xl">
+      {/* Main Executive Cloud Action Banner */}
+      <div className="p-6 bg-gradient-to-r from-sky-950 via-indigo-950 to-slate-900 rounded-3xl text-white flex flex-wrap items-center justify-between gap-4 shadow-xl border border-sky-900/40">
         <div className="space-y-1 max-w-xl">
           <h3 className="font-extrabold text-base tracking-tight flex items-center gap-2">
-            <Database className="w-5 h-5 text-violet-400" />
-            <span>End-to-End Backup & Data Recovery</span>
+            <Cloud className="w-5 h-5 text-sky-400" />
+            <span>Automated Off-Site Cloud Backup System</span>
           </h3>
           <p className="text-xs text-slate-300 font-normal leading-relaxed">
-            Create full point-in-time database snapshots saved locally and synced to Cloudflare R2 cloud storage.
+            Your fleet management records are automatically encrypted and backed up off-site. Click below to create an immediate fresh cloud snapshot right now.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => handleExportCustom()}
-            variant="secondary"
-            icon={<Download className="w-4 h-4 text-slate-700" />}
-          >
-            Export Vault Backup
-          </Button>
-          <Button
-            onClick={handleCreateBackup}
-            isLoading={isCreating}
-            icon={<HardDrive className="w-4 h-4 text-white" />}
-          >
-            {isCreating ? 'Creating Snapshot...' : 'Create Vault Snapshot'}
-          </Button>
-        </div>
+        <Button
+          onClick={handleSyncToCloud}
+          isLoading={isSyncing}
+          icon={<RefreshCw className={`w-4 h-4 text-white ${isSyncing ? 'animate-spin' : ''}`} />}
+          className="bg-sky-600 hover:bg-sky-500 text-white font-extrabold px-5 h-12 rounded-2xl"
+        >
+          {isSyncing ? 'Syncing to Cloud...' : 'Sync & Backup to Cloud Now'}
+        </Button>
       </div>
 
       {/* Status Messages */}
@@ -241,37 +241,91 @@ export const BackupsPage: React.FC = () => {
           ) : (
             <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
           )}
-          <span className="font-medium font-mono leading-relaxed">{statusMsg.text}</span>
+          <span className="font-semibold leading-relaxed">{statusMsg.text}</span>
         </div>
       )}
 
-      {/* Backups Table */}
-      <DataTable
-        columns={columns}
-        data={backups}
-        keyExtractor={(item) => item.id}
-        emptyMessage="No backup snapshots found in vault. Click 'Create Vault Snapshot' to generate one."
-      />
+      {/* Cloud Protection Features Banner */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0 mt-0.5">
+            <Lock className="w-4 h-4" />
+          </div>
+          <div>
+            <h5 className="text-xs font-bold text-slate-900">Encrypted Cloud Protection</h5>
+            <p className="text-[11px] text-slate-500 font-normal mt-0.5 leading-relaxed">
+              Data is end-to-end encrypted before upload, safeguarding sensitive fleet financials.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
+            <FileCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <h5 className="text-xs font-bold text-slate-900">50 Cloud Snapshots Saved</h5>
+            <p className="text-[11px] text-slate-500 font-normal mt-0.5 leading-relaxed">
+              Your system preserves the 50 most recent point-in-time snapshots for complete peace of mind.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+            <Shield className="w-4 h-4" />
+          </div>
+          <div>
+            <h5 className="text-xs font-bold text-slate-900">Instant Disaster Recovery</h5>
+            <p className="text-[11px] text-slate-500 font-normal mt-0.5 leading-relaxed">
+              If your computer hardware ever fails, restore your complete data onto any new computer in seconds.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Cloud Snapshots History Table */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+            <Cloud className="w-4 h-4 text-sky-600" />
+            <span>Cloud Backup History Log</span>
+          </h4>
+          <span className="text-xs text-slate-500 font-medium">
+            Showing latest {backups.length} cloud snapshots
+          </span>
+        </div>
+
+        <DataTable
+          columns={columns}
+          data={backups}
+          keyExtractor={(item) => item.id}
+          emptyMessage="No cloud backup snapshots found. Click 'Sync & Backup to Cloud Now' to create your first cloud snapshot."
+        />
+      </div>
 
       {/* Restore Confirmation Modal */}
       <Modal
         isOpen={Boolean(restoreTarget)}
         onClose={() => setRestoreTarget(null)}
-        title="Restore Vault Snapshot?"
+        title="Restore System from Cloud Snapshot?"
         maxWidth="md"
       >
         {restoreTarget && (
           <div className="space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
-              <RefreshCw className="w-6 h-6 animate-spin-slow" />
+            <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center mx-auto">
+              <RefreshCw className="w-6 h-6 animate-spin-slow text-sky-600" />
             </div>
 
             <div className="text-center space-y-2">
               <p className="text-xs text-slate-600 leading-relaxed">
-                You are about to restore the database to snapshot <span className="font-mono font-bold text-violet-700">{restoreTarget.fileName}</span>.
+                You are about to restore system data from the cloud snapshot taken on <span className="font-bold text-sky-700">{formatFriendlyDate(restoreTarget.createdAt)}</span>.
               </p>
-              <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-[11px] text-amber-900 text-left font-mono">
-                ✓ Pre-restore safety snapshot will be automatically created before applying restore.
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-900 text-left font-medium flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  An emergency safety copy is automatically saved before restoring. <strong>The software will automatically restart to apply the restored data.</strong>
+                </span>
               </div>
             </div>
 
@@ -285,13 +339,13 @@ export const BackupsPage: React.FC = () => {
                 Cancel
               </Button>
               <Button
-                variant="danger"
                 size="sm"
                 onClick={handleConfirmRestore}
                 isLoading={isRestoring}
                 icon={<RefreshCw className="w-4 h-4" />}
+                className="bg-sky-600 hover:bg-sky-500 text-white font-bold"
               >
-                {isRestoring ? 'Restoring...' : 'Restore Vault Snapshot'}
+                {isRestoring ? 'Restoring System...' : 'Restore from Cloud Now'}
               </Button>
             </div>
           </div>

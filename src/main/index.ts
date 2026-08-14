@@ -1,5 +1,6 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { initDatabase, closeDatabase } from './database/db';
 import { seedInitialDataIfNeeded } from './database/seed';
 import { registerIpcHandlers } from './ipc/registerHandlers';
@@ -7,13 +8,21 @@ import { registerIpcHandlers } from './ipc/registerHandlers';
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
+  // Remove native File, Edit, View, Window, Help top menu bar
+  Menu.setApplicationMenu(null);
+
+  const iconPath = fs.existsSync(path.join(__dirname, '../renderer/assets/icon.png'))
+    ? path.join(__dirname, '../renderer/assets/icon.png')
+    : path.join(app.getAppPath(), 'public/icon.png');
+
   mainWindow = new BrowserWindow({
     width: 1366,
     height: 868,
     minWidth: 1024,
     minHeight: 700,
     title: 'Transport Management & Fleet Operations',
-    icon: path.join(__dirname, '../renderer/assets/icon.png'),
+    icon: iconPath,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,

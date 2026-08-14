@@ -21,6 +21,29 @@ export const MaintenancePage: React.FC = () => {
   const [amount, setAmount] = useState<number | ''>(4500);
   const [vendor, setVendor] = useState('Al-Futtaim Auto');
 
+  // Quick Add Vehicle State
+  const [isQuickVehicleOpen, setIsQuickVehicleOpen] = useState(false);
+  const [quickVehicleReg, setQuickVehicleReg] = useState('');
+  const [quickVehicleType, setQuickVehicleType] = useState('Trailer Truck');
+
+  const handleQuickAddVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickVehicleReg.trim() || !window.electronAPI) return;
+    try {
+      const newVeh = await window.electronAPI.createVehicle({
+        registrationNumber: quickVehicleReg.trim(),
+        vehicleType: quickVehicleType,
+        status: 'ACTIVE',
+      });
+      await loadData();
+      setVehicleId(newVeh.id);
+      setQuickVehicleReg('');
+      setIsQuickVehicleOpen(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to add vehicle');
+    }
+  };
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { registerAction } = useKeyboardShortcuts();
 
@@ -28,10 +51,10 @@ export const MaintenancePage: React.FC = () => {
   useEffect(() => {
     const unregNew = registerAction('NEW_RECORD', () => {
       setIsModalOpen(true);
-    });
+    }, 'maintenance');
     const unregSearch = registerAction('SEARCH_FOCUS', () => {
       searchInputRef.current?.focus();
-    });
+    }, 'maintenance');
     return () => {
       unregNew();
       unregSearch();
@@ -153,7 +176,17 @@ export const MaintenancePage: React.FC = () => {
       >
         <form onSubmit={handleSave} className="space-y-3.5">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Vehicle</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700">Vehicle</label>
+              <button
+                type="button"
+                onClick={() => setIsQuickVehicleOpen(true)}
+                className="text-[11px] font-bold text-violet-600 hover:text-violet-800 flex items-center gap-1 transition"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Quick Add</span>
+              </button>
+            </div>
             <SelectDropdown
               options={vehicles.map((v) => ({
                 value: v.id,
@@ -243,6 +276,51 @@ export const MaintenancePage: React.FC = () => {
               size="sm"
             >
               Save Maintenance Log
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Quick Add Vehicle Sub-Modal */}
+      <Modal
+        isOpen={isQuickVehicleOpen}
+        onClose={() => setIsQuickVehicleOpen(false)}
+        title="Quick Add Vehicle"
+        maxWidth="md"
+      >
+        <form onSubmit={handleQuickAddVehicle} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Registration Number</label>
+            <input
+              type="text"
+              value={quickVehicleReg}
+              onChange={(e) => setQuickVehicleReg(e.target.value)}
+              placeholder="e.g. DXB-19283"
+              className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold font-mono text-slate-900 focus:outline-none transition"
+              required
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Vehicle Type</label>
+            <SelectDropdown
+              options={[
+                { value: 'Trailer Truck', label: 'Trailer Truck' },
+                { value: 'Tipper Truck', label: 'Tipper Truck' },
+                { value: 'Flatbed Truck', label: 'Flatbed Truck' },
+                { value: 'Tanker', label: 'Tanker' },
+                { value: 'Pickup', label: 'Pickup' },
+              ]}
+              value={quickVehicleType}
+              onChange={setQuickVehicleType}
+            />
+          </div>
+          <div className="pt-2 flex justify-end gap-3">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setIsQuickVehicleOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm">
+              Save & Auto-Select
             </Button>
           </div>
         </form>

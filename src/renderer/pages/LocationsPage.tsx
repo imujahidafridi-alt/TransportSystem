@@ -42,10 +42,10 @@ export const LocationsPage: React.FC = () => {
       setNotes('');
       setErrorMsg(null);
       setIsModalOpen(true);
-    });
+    }, 'locations');
     const unregisterSearch = registerAction('SEARCH_FOCUS', () => {
       document.getElementById('location-search-input')?.focus();
-    });
+    }, 'locations');
     return () => {
       unregisterNew();
       unregisterSearch();

@@ -1,23 +1,34 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 interface KeyboardShortcutContextType {
-  registerAction: (actionName: string, handler: () => void) => () => void;
+  registerAction: (actionName: string, handler: () => void, tab?: string) => () => void;
+  activeTab: string;
   isShortcutModalOpen: boolean;
   setIsShortcutModalOpen: (open: boolean) => void;
 }
 
 const KeyboardShortcutContext = createContext<KeyboardShortcutContextType | null>(null);
 
-export const KeyboardShortcutProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const KeyboardShortcutProvider: React.FC<{ activeTab?: string; children: React.ReactNode }> = ({
+  activeTab = 'dashboard',
+  children,
+}) => {
   const [actions, setActions] = useState<Record<string, () => void>>({});
   const [isShortcutModalOpen, setIsShortcutModalOpen] = useState(false);
 
-  const registerAction = (actionName: string, handler: () => void) => {
-    setActions((prev) => ({ ...prev, [actionName]: handler }));
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
+
+  const registerAction = (actionName: string, handler: () => void, tab?: string) => {
+    const key = tab ? `${tab}::${actionName}` : `GLOBAL::${actionName}`;
+    setActions((prev) => ({ ...prev, [key]: handler }));
     return () => {
       setActions((prev) => {
         const copy = { ...prev };
-        delete copy[actionName];
+        delete copy[key];
         return copy;
       });
     };
@@ -25,24 +36,46 @@ export const KeyboardShortcutProvider: React.FC<{ children: React.ReactNode }> =
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const currentTab = activeTabRef.current;
+      const currentActions = actionsRef.current;
+
+      const trigger = (actionName: string) => {
+        const scopedHandler = currentActions[`${currentTab}::${actionName}`];
+        if (scopedHandler) {
+          scopedHandler();
+          return true;
+        }
+        const globalHandler = currentActions[`GLOBAL::${actionName}`];
+        if (globalHandler) {
+          globalHandler();
+          return true;
+        }
+        return false;
+      };
+
+      // Ctrl + B (Cloud Backup Sync)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        trigger('CLOUD_BACKUP');
+      }
       // Ctrl + N (New Record)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
-        actions['NEW_RECORD']?.();
+        trigger('NEW_RECORD');
       }
       // Ctrl + F (Search Focus)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
-        actions['SEARCH_FOCUS']?.();
+        trigger('SEARCH_FOCUS');
       }
       // Ctrl + S (Save Form)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        actions['SAVE_FORM']?.();
+        trigger('SAVE_FORM');
       }
       // Esc (Close Modal)
       if (e.key === 'Escape') {
-        actions['ESCAPE']?.();
+        trigger('ESCAPE');
         setIsShortcutModalOpen(false);
       }
       // ? (Show Shortcut Modal)
@@ -53,12 +86,13 @@ export const KeyboardShortcutProvider: React.FC<{ children: React.ReactNode }> =
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [actions]);
+  }, []);
 
   return (
     <KeyboardShortcutContext.Provider
       value={{
         registerAction,
+        activeTab,
         isShortcutModalOpen,
         setIsShortcutModalOpen,
       }}

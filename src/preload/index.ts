@@ -34,13 +34,16 @@ const api = {
 
   // Salaries
   getSalaries: (driverId?: string) => ipcRenderer.invoke('salaries:get-all', driverId),
+  calculateDriverPayroll: (driverId: string, salaryPeriod: string) => ipcRenderer.invoke('salaries:calculate-payroll', { driverId, salaryPeriod }),
   createSalaryRecord: (data: any) => ipcRenderer.invoke('salaries:create', data),
   updateSalaryStatus: (id: string, status: string, date?: string) => ipcRenderer.invoke('salaries:update-status', { id, status, date }),
 
   // Dashboard & Reports
   getDashboardSummary: (params: { period?: string; customStart?: string; customEnd?: string } = {}) => ipcRenderer.invoke('dashboard:summary', params),
-  getTransportsReport: (filter: any) => ipcRenderer.invoke('reports:transports', filter),
-  getVehicleProfitabilityReport: (filter: any) => ipcRenderer.invoke('reports:vehicle-profitability', filter),
+  getTransactionReports: (filter: any) => ipcRenderer.invoke('reports:transactions', filter),
+  getDriverReports: (filter: any) => ipcRenderer.invoke('reports:drivers', filter),
+  getVehicleExpenseReports: (filter: any) => ipcRenderer.invoke('reports:vehicle-expenses', filter),
+  getProfitAndLossStatement: (filter: any) => ipcRenderer.invoke('reports:pnl-statement', filter),
 
   // Backup & Sync
   createBackup: () => ipcRenderer.invoke('backup:create'),
@@ -49,6 +52,10 @@ const api = {
   exportBackup: (filePath?: string) => ipcRenderer.invoke('backup:export', filePath),
   getBackupSummary: () => ipcRenderer.invoke('backup:summary'),
   getSyncQueueStatus: () => ipcRenderer.invoke('sync:queue-status'),
+  // PDF Preview & Printing
+  openReportPdfPreview: (params: any) => ipcRenderer.invoke('pdf:open-report-preview', params),
+  openDriverLedgerPdfPreview: (params: any) => ipcRenderer.invoke('pdf:open-driver-ledger-preview', params),
+  openPnlPdfPreview: (pnl: any) => ipcRenderer.invoke('pdf:open-pnl-preview', pnl),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);

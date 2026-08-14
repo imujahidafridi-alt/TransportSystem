@@ -24,6 +24,32 @@ export const VehiclesPage: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Quick Add Driver State
+  const [isQuickDriverOpen, setIsQuickDriverOpen] = useState(false);
+  const [quickDriverName, setQuickDriverName] = useState('');
+  const [quickDriverPhone, setQuickDriverPhone] = useState('');
+  const [quickDriverSalary, setQuickDriverSalary] = useState<number | ''>(1500);
+
+  const handleQuickAddDriver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickDriverName.trim() || !window.electronAPI) return;
+    try {
+      const newDriver = await window.electronAPI.createDriver({
+        name: quickDriverName.trim(),
+        phone: quickDriverPhone.trim() || undefined,
+        basicSalary: Number(quickDriverSalary || 1500),
+        status: 'ACTIVE',
+      });
+      await loadData();
+      setCurrentDriverId(newDriver.id);
+      setQuickDriverName('');
+      setQuickDriverPhone('');
+      setIsQuickDriverOpen(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to add driver');
+    }
+  };
+
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   const { registerAction } = useKeyboardShortcuts();
@@ -55,10 +81,10 @@ export const VehiclesPage: React.FC = () => {
       setNotes('');
       setErrorMsg(null);
       setIsModalOpen(true);
-    });
+    }, 'vehicles');
     const unregisterSearch = registerAction('SEARCH_FOCUS', () => {
       searchInputRef.current?.focus();
-    });
+    }, 'vehicles');
     return () => {
       unregisterNew();
       unregisterSearch();
@@ -291,7 +317,17 @@ export const VehiclesPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Current Assigned Driver</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700">Current Assigned Driver</label>
+              <button
+                type="button"
+                onClick={() => setIsQuickDriverOpen(true)}
+                className="text-[11px] font-bold text-violet-600 hover:text-violet-800 flex items-center gap-1 transition"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Quick Add</span>
+              </button>
+            </div>
             <SelectDropdown
               options={[
                 { value: '', label: 'No driver assigned' },
@@ -333,6 +369,59 @@ export const VehiclesPage: React.FC = () => {
               size="sm"
             >
               Save Vehicle Profile
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Quick Add Driver Sub-Modal */}
+      <Modal
+        isOpen={isQuickDriverOpen}
+        onClose={() => setIsQuickDriverOpen(false)}
+        title="Quick Add Driver"
+        maxWidth="md"
+      >
+        <form onSubmit={handleQuickAddDriver} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Driver Name</label>
+            <input
+              type="text"
+              value={quickDriverName}
+              onChange={(e) => setQuickDriverName(e.target.value)}
+              placeholder="e.g. Imran Shah"
+              className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold text-slate-900 focus:outline-none transition"
+              required
+              autoFocus
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Phone Number</label>
+              <input
+                type="text"
+                value={quickDriverPhone}
+                onChange={(e) => setQuickDriverPhone(e.target.value)}
+                placeholder="+971 50 1234567"
+                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold font-mono text-slate-900 focus:outline-none transition"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Basic Salary (AED)</label>
+              <input
+                type="number"
+                value={quickDriverSalary}
+                onChange={(e) => setQuickDriverSalary(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="1500"
+                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-bold font-mono text-slate-900 focus:outline-none transition"
+              />
+            </div>
+          </div>
+          <div className="pt-2 flex justify-end gap-3">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setIsQuickDriverOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm">
+              Save & Auto-Select
             </Button>
           </div>
         </form>

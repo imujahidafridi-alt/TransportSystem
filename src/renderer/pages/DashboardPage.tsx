@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { DashboardSummary } from '@shared/types';
+import { NavTab } from '../App';
 import {
   Truck,
   Users,
@@ -12,9 +13,14 @@ import {
   Calendar,
   Activity,
   Zap,
+  ArrowRight,
 } from 'lucide-react';
 
-export const DashboardPage: React.FC = () => {
+interface DashboardPageProps {
+  onNavigate?: (tab: NavTab) => void;
+}
+
+export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [period, setPeriod] = useState<'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'ALL'>('THIS_MONTH');
 
@@ -59,6 +65,7 @@ export const DashboardPage: React.FC = () => {
       icon: Truck,
       color: 'text-violet-600',
       bg: 'bg-violet-100/80 border-violet-200',
+      targetTab: 'vehicles' as NavTab,
     },
     {
       title: 'Active Drivers',
@@ -67,6 +74,7 @@ export const DashboardPage: React.FC = () => {
       icon: Users,
       color: 'text-indigo-600',
       bg: 'bg-indigo-100/80 border-indigo-200',
+      targetTab: 'drivers' as NavTab,
     },
     {
       title: 'Trips (Period)',
@@ -75,6 +83,7 @@ export const DashboardPage: React.FC = () => {
       icon: Route,
       color: 'text-purple-600',
       bg: 'bg-purple-100/80 border-purple-200',
+      targetTab: 'transports' as NavTab,
     },
     {
       title: 'Gross Revenue',
@@ -83,6 +92,7 @@ export const DashboardPage: React.FC = () => {
       icon: DollarSign,
       color: 'text-emerald-600',
       bg: 'bg-emerald-100/80 border-emerald-200',
+      targetTab: 'reports' as NavTab,
     },
     {
       title: 'Operating Costs',
@@ -91,6 +101,7 @@ export const DashboardPage: React.FC = () => {
       icon: Receipt,
       color: 'text-rose-600',
       bg: 'bg-rose-100/80 border-rose-200',
+      targetTab: 'expenses' as NavTab,
     },
     {
       title: 'Net Profit',
@@ -99,6 +110,7 @@ export const DashboardPage: React.FC = () => {
       icon: TrendingUp,
       color: summary.netResult >= 0 ? 'text-emerald-600' : 'text-rose-600',
       bg: summary.netResult >= 0 ? 'bg-emerald-100/80 border-emerald-200' : 'bg-rose-100/80 border-rose-200',
+      targetTab: 'reports' as NavTab,
     },
   ];
 
@@ -147,10 +159,12 @@ export const DashboardPage: React.FC = () => {
           return (
             <div
               key={idx}
-              className="bg-white border border-slate-200/80 rounded-2xl p-4 space-y-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-md transition"
+              onClick={() => onNavigate?.(kpi.targetTab)}
+              className="bg-white border border-slate-200/80 rounded-2xl p-4 space-y-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-md hover:border-violet-300 hover:scale-[1.02] cursor-pointer transition-all duration-200 group"
+              title={`Click to open ${kpi.title} in ${kpi.targetTab.toUpperCase()}`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                <span className="text-[10px] font-extrabold text-slate-400 group-hover:text-violet-600 uppercase tracking-wider transition-colors">
                   {kpi.title}
                 </span>
                 <div className={`p-2 rounded-xl border ${kpi.bg}`}>
@@ -158,7 +172,7 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
               <div>
-                <p className="text-lg font-extrabold text-slate-900 font-mono tracking-tight">
+                <p className="text-lg font-extrabold text-slate-900 font-mono tracking-tight group-hover:text-violet-700 transition-colors">
                   {kpi.value}
                 </p>
                 <p className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">{kpi.sub}</p>
@@ -177,21 +191,24 @@ export const DashboardPage: React.FC = () => {
               <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
                 Operating Cost Ratio Breakdown
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Visual distribution of expenses for selected period</p>
+              <p className="text-xs text-slate-400 mt-0.5">Click any category to open module</p>
             </div>
-            <span className="font-mono font-bold text-xs text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full">
+            <button
+              onClick={() => onNavigate?.('expenses')}
+              className="font-mono font-bold text-xs text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full hover:bg-rose-100 transition cursor-pointer"
+            >
               Total: AED {totalCost.toLocaleString()}
-            </span>
+            </button>
           </div>
 
           {/* Visual Ratio Stacked Bar */}
           <div className="h-3.5 rounded-full bg-slate-100 flex overflow-hidden p-0.5 gap-0.5">
             {totalCost > 0 ? (
               <>
-                <div style={{ width: `${fuelPct}%` }} className="bg-sky-500 rounded-l-full transition-all" title={`Fuel: ${fuelPct}%`} />
-                <div style={{ width: `${maintPct}%` }} className="bg-rose-500 transition-all" title={`Maintenance: ${maintPct}%`} />
-                <div style={{ width: `${salPct}%` }} className="bg-purple-500 transition-all" title={`Salaries: ${salPct}%`} />
-                <div style={{ width: `${expPct}%` }} className="bg-amber-500 rounded-r-full transition-all" title={`Expenses: ${expPct}%`} />
+                <div style={{ width: `${fuelPct}%` }} className="bg-sky-500 rounded-l-full transition-all cursor-pointer" onClick={() => onNavigate?.('fuel')} title={`Fuel: ${fuelPct}% - Click to open Fuel`} />
+                <div style={{ width: `${maintPct}%` }} className="bg-rose-500 transition-all cursor-pointer" onClick={() => onNavigate?.('maintenance')} title={`Maintenance: ${maintPct}% - Click to open Maintenance`} />
+                <div style={{ width: `${salPct}%` }} className="bg-purple-500 transition-all cursor-pointer" onClick={() => onNavigate?.('salaries')} title={`Salaries: ${salPct}% - Click to open Salaries`} />
+                <div style={{ width: `${expPct}%` }} className="bg-amber-500 rounded-r-full transition-all cursor-pointer" onClick={() => onNavigate?.('expenses')} title={`Expenses: ${expPct}% - Click to open Expenses`} />
               </>
             ) : (
               <div className="w-full bg-slate-200 rounded-full" />
@@ -200,7 +217,11 @@ export const DashboardPage: React.FC = () => {
 
           {/* Legend Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
-            <div className="p-3 bg-sky-50/70 border border-sky-100 rounded-xl flex items-center justify-between">
+            <div
+              onClick={() => onNavigate?.('fuel')}
+              className="p-3 bg-sky-50/70 hover:bg-sky-100/80 border border-sky-100 rounded-xl flex items-center justify-between cursor-pointer transition"
+              title="Open Fuel Module"
+            >
               <div className="flex items-center gap-2">
                 <Fuel className="w-3.5 h-3.5 text-sky-600" />
                 <span className="font-semibold text-slate-700">Fuel</span>
@@ -208,7 +229,11 @@ export const DashboardPage: React.FC = () => {
               <span className="font-mono font-bold text-slate-900">AED {summary.fuelExpenses.toLocaleString()}</span>
             </div>
 
-            <div className="p-3 bg-rose-50/70 border border-rose-100 rounded-xl flex items-center justify-between">
+            <div
+              onClick={() => onNavigate?.('maintenance')}
+              className="p-3 bg-rose-50/70 hover:bg-rose-100/80 border border-rose-100 rounded-xl flex items-center justify-between cursor-pointer transition"
+              title="Open Maintenance Module"
+            >
               <div className="flex items-center gap-2">
                 <Wrench className="w-3.5 h-3.5 text-rose-600" />
                 <span className="font-semibold text-slate-700">Repairs</span>
@@ -216,7 +241,11 @@ export const DashboardPage: React.FC = () => {
               <span className="font-mono font-bold text-slate-900">AED {summary.maintenanceExpenses.toLocaleString()}</span>
             </div>
 
-            <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-xl flex items-center justify-between">
+            <div
+              onClick={() => onNavigate?.('salaries')}
+              className="p-3 bg-purple-50/70 hover:bg-purple-100/80 border border-purple-100 rounded-xl flex items-center justify-between cursor-pointer transition"
+              title="Open Salaries Module"
+            >
               <div className="flex items-center gap-2">
                 <Users className="w-3.5 h-3.5 text-purple-600" />
                 <span className="font-semibold text-slate-700">Salaries</span>
@@ -224,7 +253,11 @@ export const DashboardPage: React.FC = () => {
               <span className="font-mono font-bold text-slate-900">AED {summary.driverSalaries.toLocaleString()}</span>
             </div>
 
-            <div className="p-3 bg-amber-50/70 border border-amber-100 rounded-xl flex items-center justify-between">
+            <div
+              onClick={() => onNavigate?.('expenses')}
+              className="p-3 bg-amber-50/70 hover:bg-amber-100/80 border border-amber-100 rounded-xl flex items-center justify-between cursor-pointer transition"
+              title="Open Expenses Module"
+            >
               <div className="flex items-center gap-2">
                 <Receipt className="w-3.5 h-3.5 text-amber-600" />
                 <span className="font-semibold text-slate-700">Other Exp</span>
@@ -235,12 +268,19 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Financial Summary & Net Profit Card */}
-        <div className="bg-gradient-to-br from-violet-900 via-indigo-950 to-slate-950 text-white rounded-2xl p-5 flex flex-col justify-between shadow-xl">
-          <div className="space-y-1">
-            <span className="text-[10px] font-extrabold text-violet-300 uppercase tracking-wider block">
-              Net Transport Result
-            </span>
-            <p className="text-xs text-slate-300 font-normal">Revenue minus all fleet operational costs</p>
+        <div
+          onClick={() => onNavigate?.('reports')}
+          className="bg-gradient-to-br from-violet-900 via-indigo-950 to-slate-950 text-white rounded-2xl p-5 flex flex-col justify-between shadow-xl cursor-pointer hover:scale-[1.01] transition-transform duration-200"
+          title="Open Profit & Loss Report"
+        >
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-extrabold text-violet-300 uppercase tracking-wider block">
+                Net Transport Result
+              </span>
+              <p className="text-xs text-slate-300 font-normal">Revenue minus all fleet operational costs</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-violet-400" />
           </div>
 
           <div className="my-4">
@@ -275,6 +315,13 @@ export const DashboardPage: React.FC = () => {
               Recent Live Transport Operations
             </h3>
           </div>
+          <button
+            onClick={() => onNavigate?.('transports')}
+            className="text-xs text-violet-600 hover:text-violet-800 font-bold flex items-center gap-1 transition"
+          >
+            <span>View All Transports</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {summary.recentTransports && summary.recentTransports.length > 0 ? (
@@ -293,9 +340,14 @@ export const DashboardPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {summary.recentTransports.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50/80 transition">
+                  <tr
+                    key={t.id}
+                    onClick={() => onNavigate?.('transports')}
+                    className="hover:bg-violet-50/50 cursor-pointer transition group"
+                    title="Click to open Transports module"
+                  >
                     <td className="py-3 px-3 font-mono text-slate-500">{t.date}</td>
-                    <td className="py-3 px-3 font-mono font-bold text-violet-700">{t.transportNo}</td>
+                    <td className="py-3 px-3 font-mono font-bold text-violet-700 group-hover:underline">{t.transportNo}</td>
                     <td className="py-3 px-3 font-semibold text-slate-800">
                       {t.fromLocationName || 'Origin'} ➔ {t.toLocationName || 'Destination'}
                     </td>

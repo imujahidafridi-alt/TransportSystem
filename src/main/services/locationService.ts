@@ -23,6 +23,17 @@ export function getAllLocations(search?: string): Location[] {
 
 export function createLocation(data: { name: string; code?: string; status?: 'ACTIVE' | 'INACTIVE'; notes?: string }): Location {
   const db = getDb();
+
+  const trimmedName = data.name.trim();
+  if (!trimmedName) {
+    throw new Error('Location name cannot be empty.');
+  }
+
+  const existing = db.prepare('SELECT id FROM locations WHERE LOWER(name) = LOWER(?)').get(trimmedName);
+  if (existing) {
+    throw new Error(`Location '${trimmedName}' already exists.`);
+  }
+
   const id = cryptoRandomUUID();
   const now = new Date().toISOString();
   
@@ -31,7 +42,7 @@ export function createLocation(data: { name: string; code?: string; status?: 'AC
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
-  stmt.run(id, data.name, data.code || null, data.status || 'ACTIVE', data.notes || null, now, now);
+  stmt.run(id, trimmedName, data.code ? data.code.trim().toUpperCase() : null, data.status || 'ACTIVE', data.notes || null, now, now);
   const newLoc = getLocationById(id)!;
   enqueueSyncOperation('CREATE', 'LOCATIONS', id, newLoc);
   return newLoc;
