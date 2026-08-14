@@ -33,7 +33,7 @@ export const ExpensesPage: React.FC = () => {
   const [categoryPreset, setCategoryPreset] = useState('Oil Change');
   const [customCategory, setCustomCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState<number | ''>(1500);
+  const [amount, setAmount] = useState<number | ''>('');
   const [vendor, setVendor] = useState('');
 
   // Quick Add Vehicle State

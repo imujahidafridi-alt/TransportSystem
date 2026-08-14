@@ -60,6 +60,7 @@ export interface Transport {
   ratePerTon?: number;
   fixedPrice?: number;
   totalAmount: number;
+  totalDirectCosts?: number;
   driverAllowance?: number;
   status: TransportStatus;
   notes?: string;
@@ -69,6 +70,7 @@ export interface Transport {
 
 export interface VehicleExpense {
   id: string;
+  transportId?: string;
   vehicleId: string;
   vehicleRegistration?: string;
   date: string;
@@ -86,6 +88,7 @@ export interface VehicleExpense {
 
 export interface FuelRecord {
   id: string;
+  transportId?: string;
   vehicleId: string;
   vehicleRegistration?: string;
   date: string;
@@ -103,6 +106,7 @@ export interface FuelRecord {
 
 export interface MaintenanceRecord {
   id: string;
+  transportId?: string;
   vehicleId: string;
   vehicleRegistration?: string;
   date: string;
@@ -113,6 +117,70 @@ export interface MaintenanceRecord {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TripCostsPayload {
+  transportId: string;
+  fuel?: {
+    quantity: number;
+    rate: number;
+    totalAmount: number;
+    vendor?: string;
+  } | null;
+  toll?: {
+    amount: number;
+    description?: string;
+  } | null;
+  fine?: {
+    amount: number;
+    description?: string;
+    reference?: string;
+  } | null;
+  maintenance?: {
+    amount: number;
+    description?: string;
+    vendor?: string;
+  } | null;
+  other?: {
+    amount: number;
+    description?: string;
+  } | null;
+}
+
+export interface TripCostSummary {
+  transportId: string;
+  fuel?: FuelRecord | null;
+  toll?: VehicleExpense | null;
+  fine?: VehicleExpense | null;
+  maintenance?: MaintenanceRecord | null;
+  other?: VehicleExpense | null;
+  totalDirectCosts: number;
+  tripRevenue: number;
+  directTripProfit: number;
+  contributionMarginPercentage: number;
+}
+
+export interface TripProfitabilityItem {
+  transportId: string;
+  transportNo: string;
+  date: string;
+  vehicleId: string;
+  vehicleRegistration: string;
+  driverId: string;
+  driverName: string;
+  route: string;
+  fromLocationName: string;
+  toLocationName: string;
+  status: TransportStatus;
+  revenue: number;
+  fuelCost: number;
+  tollCost: number;
+  fineCost: number;
+  maintenanceCost: number;
+  otherCost: number;
+  totalDirectCosts: number;
+  directTripProfit: number;
+  contributionMarginPercentage: number;
 }
 
 export interface DriverSalaryRecord {

@@ -7,6 +7,7 @@ import * as expenseService from '../services/expenseService';
 import * as salaryService from '../services/salaryService';
 import * as dashboardService from '../services/dashboardService';
 import * as reportService from '../services/reportService';
+import * as tripCostService from '../services/tripCostService';
 import * as backupService from '../backup/backupService';
 import * as syncQueue from '../sync/syncQueue';
 import { openPdfPreviewWindow } from '../pdf/pdfWindowService';
@@ -62,6 +63,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('reports:drivers', (_, filter) => reportService.getDriverReports(filter));
   ipcMain.handle('reports:vehicle-expenses', (_, filter) => reportService.getVehicleExpenseReports(filter));
   ipcMain.handle('reports:pnl-statement', (_, filter) => reportService.getProfitAndLossStatement(filter));
+  ipcMain.handle('reports:trip-profitability', (_, filter) => tripCostService.getTripProfitabilityReport(filter));
+
+  // Per-Trip Direct Costs Linkage
+  ipcMain.handle('tripCosts:get', (_, transportId: string) => tripCostService.getTripCostsByTransportId(transportId));
+  ipcMain.handle('tripCosts:save', (_, payload) => tripCostService.saveTripCosts(payload));
 
   // Backup & Sync
   ipcMain.handle('backup:create', () => backupService.createDatabaseBackup());

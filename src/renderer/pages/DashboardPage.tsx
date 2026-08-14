@@ -267,26 +267,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Financial Summary & Net Profit Card */}
+        {/* Financial Summary & Net Profit Card (Clean Light Theme) */}
         <div
           onClick={() => onNavigate?.('reports')}
-          className="bg-gradient-to-br from-violet-900 via-indigo-950 to-slate-950 text-white rounded-2xl p-5 flex flex-col justify-between shadow-xl cursor-pointer hover:scale-[1.01] transition-transform duration-200"
+          className="bg-white border-2 border-violet-200/80 hover:border-violet-400 rounded-2xl p-5 flex flex-col justify-between shadow-xs cursor-pointer transition-colors duration-150"
           title="Open Profit & Loss Report"
         >
           <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-[10px] font-extrabold text-violet-300 uppercase tracking-wider block">
-                Net Transport Result
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-extrabold text-violet-700 uppercase tracking-wider block">
+                Net Operating Result
               </span>
-              <p className="text-xs text-slate-300 font-normal">Revenue minus all fleet operational costs</p>
+              <p className="text-xs text-slate-500 font-normal">Revenue minus all fleet operational costs</p>
             </div>
-            <ArrowRight className="w-4 h-4 text-violet-400" />
+            <ArrowRight className="w-4 h-4 text-violet-600" />
           </div>
 
-          <div className="my-4">
+          <div className="my-3">
             <span
               className={`text-3xl font-black font-mono tracking-tight ${
-                summary.netResult >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                summary.netResult >= 0 ? 'text-emerald-600' : 'text-rose-600'
               }`}
             >
               AED {summary.netResult.toLocaleString()}
@@ -294,13 +294,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           </div>
 
           <div className="space-y-2">
-            <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl text-xs flex items-center justify-between">
-              <span className="text-slate-300">Revenue Earned:</span>
-              <span className="font-mono font-bold text-emerald-400">AED {summary.totalRevenue.toLocaleString()}</span>
+            <div className="p-2.5 bg-emerald-50/80 border border-emerald-200/80 rounded-xl text-xs flex items-center justify-between">
+              <span className="text-slate-700 font-medium">Revenue Earned:</span>
+              <span className="font-mono font-extrabold text-emerald-700">AED {summary.totalRevenue.toLocaleString()}</span>
             </div>
-            <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl text-xs flex items-center justify-between">
-              <span className="text-slate-300">Total Operating Costs:</span>
-              <span className="font-mono font-bold text-rose-400">AED {totalCost.toLocaleString()}</span>
+            <div className="p-2.5 bg-rose-50/80 border border-rose-200/80 rounded-xl text-xs flex items-center justify-between">
+              <span className="text-slate-700 font-medium">Total Operating Costs:</span>
+              <span className="font-mono font-extrabold text-rose-700">AED {totalCost.toLocaleString()}</span>
             </div>
           </div>
         </div>

@@ -44,6 +44,11 @@ const api = {
   getDriverReports: (filter: any) => ipcRenderer.invoke('reports:drivers', filter),
   getVehicleExpenseReports: (filter: any) => ipcRenderer.invoke('reports:vehicle-expenses', filter),
   getProfitAndLossStatement: (filter: any) => ipcRenderer.invoke('reports:pnl-statement', filter),
+  getTripProfitabilityReport: (filter: any) => ipcRenderer.invoke('reports:trip-profitability', filter),
+
+  // Per-Trip Direct Costs Linkage
+  getTripCosts: (transportId: string) => ipcRenderer.invoke('tripCosts:get', transportId),
+  saveTripCosts: (payload: any) => ipcRenderer.invoke('tripCosts:save', payload),
 
   // Backup & Sync
   createBackup: () => ipcRenderer.invoke('backup:create'),

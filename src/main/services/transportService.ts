@@ -52,12 +52,24 @@ export function getAllTransports(search?: string, limit = 50, offset = 0): { ite
       t.driver_id as driverId, d.name as driverName,
       t.tons, t.rate_per_ton as ratePerTon, t.fixed_price as fixedPrice,
       t.total_amount as totalAmount, t.driver_allowance as driverAllowance, t.status, t.notes,
+      COALESCE(c.totalCosts, 0) as totalDirectCosts,
       t.created_at as createdAt, t.updated_at as updatedAt
     FROM transports t
     JOIN vehicles v ON t.vehicle_id = v.id
     JOIN drivers d ON t.driver_id = d.id
     JOIN locations fl ON t.from_location_id = fl.id
     JOIN locations tl ON t.to_location_id = tl.id
+    LEFT JOIN (
+      SELECT transport_id, SUM(cost) as totalCosts
+      FROM (
+        SELECT transport_id, total_amount as cost FROM fuel_records WHERE transport_id IS NOT NULL
+        UNION ALL
+        SELECT transport_id, amount as cost FROM vehicle_expenses WHERE transport_id IS NOT NULL
+        UNION ALL
+        SELECT transport_id, amount as cost FROM maintenance_records WHERE transport_id IS NOT NULL
+      )
+      GROUP BY transport_id
+    ) c ON c.transport_id = t.id
     ${whereClause}
     ORDER BY t.date DESC, t.created_at DESC
     LIMIT ? OFFSET ?
@@ -69,7 +81,7 @@ export function getAllTransports(search?: string, limit = 50, offset = 0): { ite
 
 export function createTransport(data: Omit<Transport, 'id' | 'transportNo' | 'totalAmount' | 'createdAt' | 'updatedAt'>): Transport {
   const db = getDb();
-
+  
   if (data.fromLocationId === data.toLocationId) {
     throw new Error('From Location and To Location must be different.');
   }
@@ -176,6 +188,15 @@ export function updateTransport(id: string, data: Partial<Transport>): Transport
     now,
     id
   );
+
+  // Synchronize vehicle_id and date on linked trip costs
+  if (data.vehicleId || data.date) {
+    const newVehId = data.vehicleId ?? existing.vehicleId;
+    const newDate = data.date ?? existing.date;
+    db.prepare('UPDATE fuel_records SET vehicle_id = ?, date = ?, updated_at = ? WHERE transport_id = ?').run(newVehId, newDate, now, id);
+    db.prepare('UPDATE maintenance_records SET vehicle_id = ?, date = ?, updated_at = ? WHERE transport_id = ?').run(newVehId, newDate, now, id);
+    db.prepare('UPDATE vehicle_expenses SET vehicle_id = ?, date = ?, updated_at = ? WHERE transport_id = ?').run(newVehId, newDate, now, id);
+  }
 
   const updatedRecord = getTransportById(id)!;
   enqueueSyncOperation('UPDATE', 'TRANSPORTS', id, updatedRecord);

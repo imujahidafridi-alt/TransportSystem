@@ -18,7 +18,7 @@ export const DriversPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [cnicOrLicense, setCnicOrLicense] = useState('');
   const [salaryType, setSalaryType] = useState('MONTHLY');
-  const [basicSalary, setBasicSalary] = useState<number | ''>(1500);
+  const [basicSalary, setBasicSalary] = useState<number | ''>('');
   const [status, setStatus] = useState<DriverStatus>('ACTIVE');
   const [notes, setNotes] = useState('');
 
@@ -44,7 +44,7 @@ export const DriversPage: React.FC = () => {
       setPhone('');
       setCnicOrLicense('');
       setSalaryType('MONTHLY');
-      setBasicSalary(1500);
+      setBasicSalary('');
       setStatus('ACTIVE');
       setNotes('');
       setIsModalOpen(true);

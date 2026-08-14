@@ -1,6 +1,6 @@
 import React from 'react';
 import { Transport, Location, Driver, Vehicle } from '@shared/types';
-import { Plus, Edit2, XCircle } from 'lucide-react';
+import { Plus, Edit2, XCircle, Receipt } from 'lucide-react';
 import { DataTable, Column } from '../common/DataTable';
 import { Button } from '../common/Button';
 
@@ -12,6 +12,7 @@ interface ExcelTransportGridProps {
   onNew: () => void;
   onEdit: (transport: Transport) => void;
   onCancel: (id: string) => void;
+  onOpenCosts?: (transport: Transport) => void;
 }
 
 export const ExcelTransportGrid: React.FC<ExcelTransportGridProps> = ({
@@ -19,27 +20,29 @@ export const ExcelTransportGrid: React.FC<ExcelTransportGridProps> = ({
   onNew,
   onEdit,
   onCancel,
+  onOpenCosts,
 }) => {
   const columns: Column<Transport>[] = [
     {
       key: 'date',
       header: 'Date',
-      className: 'font-mono text-slate-600',
+      className: 'font-mono text-slate-500 whitespace-nowrap',
     },
     {
       key: 'transportNo',
       header: 'Transport #',
-      className: 'font-mono font-bold text-violet-700',
+      className: 'font-mono font-bold text-violet-700 whitespace-nowrap',
     },
     {
       key: 'transportType',
       header: 'Type',
+      align: 'center',
       render: (t) => (
         <span
-          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+          className={`px-2 py-0.5 rounded text-[11px] font-bold ${
             t.transportType === 'TRIP'
-              ? 'bg-purple-100 text-purple-700'
-              : 'bg-indigo-100 text-indigo-700'
+              ? 'bg-purple-100 text-purple-800'
+              : 'bg-indigo-100 text-indigo-800'
           }`}
         >
           {t.transportType}
@@ -95,10 +98,33 @@ export const ExcelTransportGrid: React.FC<ExcelTransportGridProps> = ({
     },
     {
       key: 'totalAmount',
-      header: 'Total (AED)',
+      header: 'Revenue (AED)',
       align: 'right',
       className: 'font-mono font-extrabold text-emerald-600',
       render: (t) => t.totalAmount.toLocaleString(),
+    },
+    {
+      key: 'totalDirectCosts',
+      header: 'Trip Costs',
+      align: 'center',
+      render: (t) => {
+        const hasCosts = (t.totalDirectCosts || 0) > 0;
+        return (
+          <button
+            onClick={() => onOpenCosts?.(t)}
+            disabled={t.status === 'CANCELLED'}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition cursor-pointer ${
+              hasCosts
+                ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/80 shadow-2xs'
+                : 'bg-slate-100/80 text-slate-500 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300 border border-slate-200/60'
+            }`}
+            title="Click to view or edit linked trip costs"
+          >
+            <Receipt className="w-3.5 h-3.5 shrink-0" />
+            <span>{hasCosts ? `AED ${(t.totalDirectCosts || 0).toLocaleString()}` : '+ Add Costs'}</span>
+          </button>
+        );
+      },
     },
     {
       key: 'status',
@@ -126,9 +152,16 @@ export const ExcelTransportGrid: React.FC<ExcelTransportGridProps> = ({
         return (
           <div className="flex items-center justify-center gap-1">
             <button
+              onClick={() => onOpenCosts?.(t)}
+              className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+              title="Manage Trip Costs (Fuel, Tolls, Fines)"
+            >
+              <Receipt className="w-3.5 h-3.5" />
+            </button>
+            <button
               onClick={() => onEdit(t)}
               className="p-1 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition"
-              title="Edit Record"
+              title="Edit Transport"
             >
               <Edit2 className="w-3.5 h-3.5" />
             </button>

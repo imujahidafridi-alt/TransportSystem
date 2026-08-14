@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Transport, Location, Driver, Vehicle } from '@shared/types';
 import { ExcelTransportGrid } from '../components/transports/ExcelTransportGrid';
 import { TransportFormModal } from '../components/transports/TransportFormModal';
+import { TripCostDrawer } from '../components/transports/TripCostDrawer';
 import { SearchBox } from '../components/common/SearchBox';
 import { useKeyboardShortcuts } from '../context/KeyboardShortcutContext';
 
@@ -14,6 +15,10 @@ export const TransportsPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransport, setEditingTransport] = useState<Transport | null>(null);
+
+  // Trip Costs Drawer State
+  const [costTransport, setCostTransport] = useState<Transport | null>(null);
+  const [isCostDrawerOpen, setIsCostDrawerOpen] = useState(false);
 
   const { registerAction } = useKeyboardShortcuts();
 
@@ -70,6 +75,11 @@ export const TransportsPage: React.FC = () => {
     }
   };
 
+  const handleOpenCosts = (t: Transport) => {
+    setCostTransport(t);
+    setIsCostDrawerOpen(true);
+  };
+
   return (
     <div className="p-6 h-[calc(100vh-3.5rem)] flex flex-col space-y-4">
       {/* Search Header Bar */}
@@ -99,6 +109,7 @@ export const TransportsPage: React.FC = () => {
             setIsModalOpen(true);
           }}
           onCancel={handleCancelTransport}
+          onOpenCosts={handleOpenCosts}
         />
       </div>
 
@@ -112,6 +123,14 @@ export const TransportsPage: React.FC = () => {
         drivers={drivers}
         vehicles={vehicles}
         onRefreshMasterData={loadData}
+      />
+
+      {/* Direct Trip Cost Drawer */}
+      <TripCostDrawer
+        isOpen={isCostDrawerOpen}
+        onClose={() => setIsCostDrawerOpen(false)}
+        transport={costTransport}
+        onCostsSaved={loadData}
       />
     </div>
   );

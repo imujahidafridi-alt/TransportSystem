@@ -17,10 +17,10 @@ export const FuelPage: React.FC = () => {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [vehicleId, setVehicleId] = useState('');
   const [fuelType, setFuelType] = useState('DIESEL');
-  const [quantity, setQuantity] = useState<number | ''>(250);
-  const [rate, setRate] = useState<number | ''>(3.5);
-  const [vendor, setVendor] = useState('ENOC Station');
-  const [odometer, setOdometer] = useState<number | ''>(142500);
+  const [quantity, setQuantity] = useState<number | ''>('');
+  const [rate, setRate] = useState<number | ''>('');
+  const [vendor, setVendor] = useState('');
+  const [odometer, setOdometer] = useState<number | ''>('');
 
   // Quick Add Vehicle State
   const [isQuickVehicleOpen, setIsQuickVehicleOpen] = useState(false);

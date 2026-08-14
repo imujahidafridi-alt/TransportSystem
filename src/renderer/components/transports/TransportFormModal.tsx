@@ -51,7 +51,7 @@ export const TransportFormModal: React.FC<TransportFormModalProps> = ({
   const [isQuickDriverOpen, setIsQuickDriverOpen] = useState(false);
   const [quickDriverName, setQuickDriverName] = useState('');
   const [quickDriverPhone, setQuickDriverPhone] = useState('');
-  const [quickDriverSalary, setQuickDriverSalary] = useState<number | ''>(1500);
+  const [quickDriverSalary, setQuickDriverSalary] = useState<number | ''>('');
 
   useEffect(() => {
     if (initialData) {

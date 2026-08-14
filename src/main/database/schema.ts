@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS transports (
 
 CREATE TABLE IF NOT EXISTS vehicle_expenses (
   id TEXT PRIMARY KEY,
+  transport_id TEXT REFERENCES transports(id) ON DELETE SET NULL,
   vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   date TEXT NOT NULL,
   expense_type TEXT NOT NULL,
@@ -74,6 +75,7 @@ CREATE TABLE IF NOT EXISTS vehicle_expenses (
 
 CREATE TABLE IF NOT EXISTS fuel_records (
   id TEXT PRIMARY KEY,
+  transport_id TEXT REFERENCES transports(id) ON DELETE SET NULL,
   vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   date TEXT NOT NULL,
   fuel_type TEXT NOT NULL DEFAULT 'DIESEL',
@@ -90,6 +92,7 @@ CREATE TABLE IF NOT EXISTS fuel_records (
 
 CREATE TABLE IF NOT EXISTS maintenance_records (
   id TEXT PRIMARY KEY,
+  transport_id TEXT REFERENCES transports(id) ON DELETE SET NULL,
   vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   date TEXT NOT NULL,
   maintenance_type TEXT NOT NULL,
@@ -136,7 +139,9 @@ CREATE TABLE IF NOT EXISTS system_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+`;
 
+export const CREATE_INDEXES_SQL = `
 -- Optimization Indexes
 CREATE INDEX IF NOT EXISTS idx_vehicles_reg_num ON vehicles(registration_number);
 CREATE INDEX IF NOT EXISTS idx_drivers_name ON drivers(name);
@@ -146,7 +151,10 @@ CREATE INDEX IF NOT EXISTS idx_transports_driver_id ON transports(driver_id);
 CREATE INDEX IF NOT EXISTS idx_transports_from_loc ON transports(from_location_id);
 CREATE INDEX IF NOT EXISTS idx_transports_to_loc ON transports(to_location_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_vehicle_id ON vehicle_expenses(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_transport_id ON vehicle_expenses(transport_id);
 CREATE INDEX IF NOT EXISTS idx_fuel_vehicle_id ON fuel_records(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_fuel_transport_id ON fuel_records(transport_id);
 CREATE INDEX IF NOT EXISTS idx_maintenance_vehicle_id ON maintenance_records(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_maintenance_transport_id ON maintenance_records(transport_id);
 CREATE INDEX IF NOT EXISTS idx_salaries_driver_id ON driver_salary_records(driver_id);
 `;

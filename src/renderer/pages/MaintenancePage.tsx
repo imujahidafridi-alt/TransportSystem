@@ -18,8 +18,8 @@ export const MaintenancePage: React.FC = () => {
   const [vehicleId, setVehicleId] = useState('');
   const [maintenanceType, setMaintenanceType] = useState('Engine Repair');
   const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState<number | ''>(4500);
-  const [vendor, setVendor] = useState('Al-Futtaim Auto');
+  const [amount, setAmount] = useState<number | ''>('');
+  const [vendor, setVendor] = useState('');
 
   // Quick Add Vehicle State
   const [isQuickVehicleOpen, setIsQuickVehicleOpen] = useState(false);

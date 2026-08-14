@@ -91,7 +91,7 @@ export function DataTable<T>({
       )}
 
       {/* Virtualized Table Container */}
-      <div ref={parentRef} className="flex-1 overflow-auto min-h-0 relative">
+      <div ref={parentRef} className="flex-1 smooth-scroll min-h-0 relative">
         <table className="w-full text-left text-xs border-collapse font-sans">
           <thead className="bg-violet-50/80 text-violet-950 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-violet-100 select-none">
             <tr>

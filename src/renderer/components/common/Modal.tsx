@@ -144,9 +144,9 @@ export const Modal: React.FC<ModalProps> = ({
 
   return createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 select-none">
-      {/* Full-Window Dark Blur Backdrop covering Header + Sidebar + Main */}
+      {/* Full-Window Clean Backdrop covering Header + Sidebar + Main */}
       <div
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+        className="fixed inset-0 bg-slate-900/30 transition-opacity animate-in fade-in duration-150"
         onClick={onClose}
       />
 

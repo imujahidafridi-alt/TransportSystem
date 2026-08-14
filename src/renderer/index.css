@@ -38,10 +38,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Soft Scrollbar */
+/* Custom Smooth Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -55,6 +55,15 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
+}
+
+/* High-Performance Smooth Scroll Container */
+.smooth-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  will-change: scroll-position;
 }
 
 /* Custom Soft Lavender Card Utilities */

@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { CREATE_TABLES_SQL } from './schema';
+import { CREATE_TABLES_SQL, CREATE_INDEXES_SQL } from './schema';
 
 let dbInstance: Database.Database | null = null;
 
@@ -67,6 +67,30 @@ export function initDatabase(): Database.Database {
     dbInstance.exec('ALTER TABLE driver_salary_records ADD COLUMN trip_earnings REAL NOT NULL DEFAULT 0;');
   } catch {
     // Column already exists
+  }
+
+  // Migration: Ensure transport_id column exists in vehicle_expenses, fuel_records, and maintenance_records
+  try {
+    dbInstance.exec('ALTER TABLE vehicle_expenses ADD COLUMN transport_id TEXT;');
+  } catch {
+    // Column already exists
+  }
+  try {
+    dbInstance.exec('ALTER TABLE fuel_records ADD COLUMN transport_id TEXT;');
+  } catch {
+    // Column already exists
+  }
+  try {
+    dbInstance.exec('ALTER TABLE maintenance_records ADD COLUMN transport_id TEXT;');
+  } catch {
+    // Column already exists
+  }
+
+  // Execute optimization indexes now that all columns are guaranteed to exist
+  try {
+    dbInstance.exec(CREATE_INDEXES_SQL);
+  } catch {
+    // Indexes already created
   }
 
   // Initialize default system settings if not present
