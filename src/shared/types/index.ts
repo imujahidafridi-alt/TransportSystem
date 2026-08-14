@@ -3,7 +3,7 @@ export type TransportStatus = 'DRAFT' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
 
 export type EntityStatus = 'ACTIVE' | 'INACTIVE';
 export type DriverStatus = 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE';
-export type SalaryPaymentStatus = 'PENDING' | 'PARTIALLY_PAID' | 'PAID';
+export type SalaryPaymentStatus = 'DRAFT' | 'FINALIZED' | 'PAID';
 
 export interface Location {
   id: string;
@@ -183,10 +183,21 @@ export interface TripProfitabilityItem {
   contributionMarginPercentage: number;
 }
 
+export interface DriverSalaryAdjustment {
+  id: string;
+  salaryRecordId: string;
+  adjustmentType: 'BONUS' | 'DEDUCTION' | 'ADVANCE';
+  amount: number;
+  reason: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
 export interface DriverSalaryRecord {
   id: string;
   driverId: string;
   driverName?: string;
+  salaryType?: string;
   salaryPeriod: string; // e.g. "2026-08"
   basicSalary: number;
   totalTrips?: number;
@@ -197,9 +208,34 @@ export interface DriverSalaryRecord {
   netSalary: number;
   paymentDate?: string;
   paymentStatus: SalaryPaymentStatus;
+  paymentMethod?: string;
+  paymentReference?: string;
+  paidBy?: string;
+  finalizedAt?: string;
+  finalizedBy?: string;
   notes?: string;
+  adjustments?: DriverSalaryAdjustment[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MasterPayrollSummary {
+  salaryPeriod: string;
+  totalDrivers: number;
+  eligibleDrivers: number;
+  workingDrivers: number;
+  completedTrips: number;
+  totalBasicSalary: number;
+  totalTripEarnings: number;
+  totalAllowances: number;
+  totalDeductions: number;
+  totalAdvances: number;
+  totalNetPayable: number;
+  totalPaid: number;
+  totalPending: number;
+  draftCount: number;
+  finalizedCount: number;
+  paidCount: number;
 }
 
 export interface SyncQueueItem {

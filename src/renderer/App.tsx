@@ -3,6 +3,9 @@ import { Sidebar } from './components/common/Sidebar';
 import { Header } from './components/common/Header';
 import { ShortcutModal } from './components/common/ShortcutModal';
 import { KeyboardShortcutProvider } from './context/KeyboardShortcutContext';
+import { SecurityProvider } from './context/SecurityContext';
+import { LockScreen } from './components/security/LockScreen';
+import { SecuritySettingsModal } from './components/security/SecuritySettingsModal';
 
 // Pages
 import { DashboardPage } from './pages/DashboardPage';
@@ -51,74 +54,82 @@ export const App: React.FC = () => {
   };
 
   return (
-    <KeyboardShortcutProvider activeTab={activeTab}>
-      <div className="flex h-screen bg-[#F4F5FA] text-[#1E1B4B] font-sans antialiased overflow-hidden select-none">
-        {/* Floating Sidebar */}
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          onOpenShortcuts={() => setIsShortcutModalOpen(true)}
-        />
+    <SecurityProvider>
+      <KeyboardShortcutProvider activeTab={activeTab}>
+        <div className="flex h-screen bg-[#F4F5FA] text-[#1E1B4B] font-sans antialiased overflow-hidden select-none">
+          {/* Floating Sidebar */}
+          <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            onOpenShortcuts={() => setIsShortcutModalOpen(true)}
+          />
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-          <Header activeTabTitle={getTabTitle(activeTab)} />
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+            <Header activeTabTitle={getTabTitle(activeTab)} />
 
-          <main className="flex-1 overflow-y-auto relative">
-            {/* Keep-Alive Persistent Module Containers: Zero layout shifts, instant tab switching, 100% filter/scroll preservation */}
-            <div className={activeTab === 'dashboard' ? 'h-full flex flex-col' : 'hidden'}>
-              <DashboardPage onNavigate={(tab) => setActiveTab(tab)} />
-            </div>
+            <main className="flex-1 overflow-y-auto relative">
+              {/* Keep-Alive Persistent Module Containers: Zero layout shifts, instant tab switching, 100% filter/scroll preservation */}
+              <div className={activeTab === 'dashboard' ? 'h-full flex flex-col' : 'hidden'}>
+                <DashboardPage onNavigate={(tab) => setActiveTab(tab)} />
+              </div>
 
-            <div className={activeTab === 'transports' ? 'h-full flex flex-col' : 'hidden'}>
-              <TransportsPage />
-            </div>
+              <div className={activeTab === 'transports' ? 'h-full flex flex-col' : 'hidden'}>
+                <TransportsPage />
+              </div>
 
-            <div className={activeTab === 'vehicles' ? 'h-full flex flex-col' : 'hidden'}>
-              <VehiclesPage />
-            </div>
+              <div className={activeTab === 'vehicles' ? 'h-full flex flex-col' : 'hidden'}>
+                <VehiclesPage />
+              </div>
 
-            <div className={activeTab === 'drivers' ? 'h-full flex flex-col' : 'hidden'}>
-              <DriversPage />
-            </div>
+              <div className={activeTab === 'drivers' ? 'h-full flex flex-col' : 'hidden'}>
+                <DriversPage />
+              </div>
 
-            <div className={activeTab === 'locations' ? 'h-full flex flex-col' : 'hidden'}>
-              <LocationsPage />
-            </div>
+              <div className={activeTab === 'locations' ? 'h-full flex flex-col' : 'hidden'}>
+                <LocationsPage />
+              </div>
 
-            <div className={activeTab === 'expenses' ? 'h-full flex flex-col' : 'hidden'}>
-              <ExpensesPage />
-            </div>
+              <div className={activeTab === 'expenses' ? 'h-full flex flex-col' : 'hidden'}>
+                <ExpensesPage />
+              </div>
 
-            <div className={activeTab === 'fuel' ? 'h-full flex flex-col' : 'hidden'}>
-              <FuelPage />
-            </div>
+              <div className={activeTab === 'fuel' ? 'h-full flex flex-col' : 'hidden'}>
+                <FuelPage />
+              </div>
 
-            <div className={activeTab === 'maintenance' ? 'h-full flex flex-col' : 'hidden'}>
-              <MaintenancePage />
-            </div>
+              <div className={activeTab === 'maintenance' ? 'h-full flex flex-col' : 'hidden'}>
+                <MaintenancePage />
+              </div>
 
-            <div className={activeTab === 'salaries' ? 'h-full flex flex-col' : 'hidden'}>
-              <DriverSalariesPage />
-            </div>
+              <div className={activeTab === 'salaries' ? 'h-full flex flex-col' : 'hidden'}>
+                <DriverSalariesPage />
+              </div>
 
-            <div className={activeTab === 'reports' ? 'h-full flex flex-col' : 'hidden'}>
-              <ReportsPage />
-            </div>
+              <div className={activeTab === 'reports' ? 'h-full flex flex-col' : 'hidden'}>
+                <ReportsPage />
+              </div>
 
-            <div className={activeTab === 'backups' ? 'h-full flex flex-col' : 'hidden'}>
-              <BackupsPage />
-            </div>
-          </main>
+              <div className={activeTab === 'backups' ? 'h-full flex flex-col' : 'hidden'}>
+                <BackupsPage />
+              </div>
+            </main>
+          </div>
+
+          {/* Global Keyboard Shortcut Modal */}
+          <ShortcutModal
+            isOpen={isShortcutModalOpen}
+            onClose={() => setIsShortcutModalOpen(false)}
+          />
+
+          {/* Enterprise Security Settings Dialog */}
+          <SecuritySettingsModal />
+
+          {/* Enterprise Lockscreen Fullscreen Overlay */}
+          <LockScreen />
         </div>
-
-        {/* Global Keyboard Shortcut Modal */}
-        <ShortcutModal
-          isOpen={isShortcutModalOpen}
-          onClose={() => setIsShortcutModalOpen(false)}
-        />
-      </div>
-    </KeyboardShortcutProvider>
+      </KeyboardShortcutProvider>
+    </SecurityProvider>
   );
 };
 

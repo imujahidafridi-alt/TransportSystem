@@ -86,6 +86,50 @@ export function initDatabase(): Database.Database {
     // Column already exists
   }
 
+  // Migration: Ensure payment metadata and finalization audit columns exist in driver_salary_records
+  try {
+    dbInstance.exec('ALTER TABLE driver_salary_records ADD COLUMN payment_method TEXT;');
+  } catch {
+    // Column already exists
+  }
+  try {
+    dbInstance.exec('ALTER TABLE driver_salary_records ADD COLUMN payment_reference TEXT;');
+  } catch {
+    // Column already exists
+  }
+  try {
+    dbInstance.exec('ALTER TABLE driver_salary_records ADD COLUMN paid_by TEXT;');
+  } catch {
+    // Column already exists
+  }
+  try {
+    dbInstance.exec('ALTER TABLE driver_salary_records ADD COLUMN finalized_at TEXT;');
+  } catch {
+    // Column already exists
+  }
+  try {
+    dbInstance.exec('ALTER TABLE driver_salary_records ADD COLUMN finalized_by TEXT;');
+  } catch {
+    // Column already exists
+  }
+
+  // Migration: Ensure driver_salary_adjustments table exists
+  try {
+    dbInstance.exec(`
+      CREATE TABLE IF NOT EXISTS driver_salary_adjustments (
+        id TEXT PRIMARY KEY,
+        salary_record_id TEXT NOT NULL REFERENCES driver_salary_records(id) ON DELETE CASCADE,
+        adjustment_type TEXT NOT NULL,
+        amount REAL NOT NULL,
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        created_by TEXT
+      );
+    `);
+  } catch {
+    // Table already exists
+  }
+
   // Execute optimization indexes now that all columns are guaranteed to exist
   try {
     dbInstance.exec(CREATE_INDEXES_SQL);

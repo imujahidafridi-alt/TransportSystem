@@ -152,6 +152,22 @@ export const FuelPage: React.FC = () => {
       render: (f) => f.vendor || '-',
     },
     {
+      key: 'classification',
+      header: 'Classification',
+      align: 'center',
+      render: (f) => (
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-2xs whitespace-nowrap ${
+            f.transportId
+              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+              : 'bg-amber-50 text-amber-800 border border-amber-200'
+          }`}
+        >
+          {f.transportId ? 'TRIP COST' : 'VEHICLE COST'}
+        </span>
+      ),
+    },
+    {
       key: 'odometer',
       header: 'Odometer (KM)',
       align: 'right',

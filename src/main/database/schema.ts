@@ -116,10 +116,25 @@ CREATE TABLE IF NOT EXISTS driver_salary_records (
   advance REAL NOT NULL DEFAULT 0,
   net_salary REAL NOT NULL DEFAULT 0,
   payment_date TEXT,
-  payment_status TEXT NOT NULL DEFAULT 'PENDING',
+  payment_status TEXT NOT NULL DEFAULT 'DRAFT',
+  payment_method TEXT,
+  payment_reference TEXT,
+  paid_by TEXT,
+  finalized_at TEXT,
+  finalized_by TEXT,
   notes TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS driver_salary_adjustments (
+  id TEXT PRIMARY KEY,
+  salary_record_id TEXT NOT NULL REFERENCES driver_salary_records(id) ON DELETE CASCADE,
+  adjustment_type TEXT NOT NULL, -- 'BONUS' | 'DEDUCTION' | 'ADVANCE'
+  amount REAL NOT NULL,
+  reason TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  created_by TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sync_queue (
@@ -157,4 +172,6 @@ CREATE INDEX IF NOT EXISTS idx_fuel_transport_id ON fuel_records(transport_id);
 CREATE INDEX IF NOT EXISTS idx_maintenance_vehicle_id ON maintenance_records(vehicle_id);
 CREATE INDEX IF NOT EXISTS idx_maintenance_transport_id ON maintenance_records(transport_id);
 CREATE INDEX IF NOT EXISTS idx_salaries_driver_id ON driver_salary_records(driver_id);
+CREATE INDEX IF NOT EXISTS idx_salaries_period ON driver_salary_records(salary_period);
+CREATE INDEX IF NOT EXISTS idx_adjustments_salary_id ON driver_salary_adjustments(salary_record_id);
 `;

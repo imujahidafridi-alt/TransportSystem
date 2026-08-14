@@ -8,6 +8,7 @@ import * as salaryService from '../services/salaryService';
 import * as dashboardService from '../services/dashboardService';
 import * as reportService from '../services/reportService';
 import * as tripCostService from '../services/tripCostService';
+import * as securityService from '../services/securityService';
 import * as backupService from '../backup/backupService';
 import * as syncQueue from '../sync/syncQueue';
 import { openPdfPreviewWindow } from '../pdf/pdfWindowService';
@@ -51,11 +52,29 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('maintenance:get-all', (_, vehicleId?: string) => expenseService.getAllMaintenanceRecords(vehicleId));
   ipcMain.handle('maintenance:create', (_, data) => expenseService.createMaintenanceRecord(data));
 
-  // Salaries
-  ipcMain.handle('salaries:get-all', (_, driverId?: string) => salaryService.getAllSalaries(driverId));
-  ipcMain.handle('salaries:calculate-payroll', (_, { driverId, salaryPeriod }) => salaryService.calculateDriverPayrollForPeriod(driverId, salaryPeriod));
+  // Salaries & Batch Payroll Engine
+  ipcMain.handle('salaries:get-all', (_, filter?: { period?: string; driverId?: string; status?: string }) =>
+    salaryService.getAllSalaries(filter?.period, filter?.driverId, filter?.status)
+  );
+  ipcMain.handle('salaries:calculate-payroll', (_, { driverId, salaryPeriod }) =>
+    salaryService.calculateDriverPayrollForPeriod(driverId, salaryPeriod)
+  );
   ipcMain.handle('salaries:create', (_, data) => salaryService.createSalaryRecord(data));
-  ipcMain.handle('salaries:update-status', (_, { id, status, date }) => salaryService.updateSalaryStatus(id, status, date));
+  ipcMain.handle('salaries:update-status', (_, { id, status, date }) =>
+    salaryService.updateSalaryStatus(id, status, date)
+  );
+  ipcMain.handle('salaries:generate-draft', (_, { period, createdBy }) =>
+    salaryService.generatePayrollDraftForPeriod(period, createdBy)
+  );
+  ipcMain.handle('salaries:finalize', (_, { period, salaryRecordIds, finalizedBy }) =>
+    salaryService.finalizePayrollForPeriod(period, salaryRecordIds, finalizedBy)
+  );
+  ipcMain.handle('salaries:mark-paid', (_, payload) => salaryService.markSalariesPaid(payload));
+  ipcMain.handle('salaries:add-adjustment', (_, data) => salaryService.addSalaryAdjustment(data));
+  ipcMain.handle('salaries:delete-adjustment', (_, id: string) => salaryService.deleteSalaryAdjustment(id));
+  ipcMain.handle('salaries:master-summary', (_, period: string) =>
+    salaryService.getMasterPayrollSummary(period)
+  );
 
   // Dashboard & Reports
   ipcMain.handle('dashboard:summary', (_, { period, customStart, customEnd }) => dashboardService.getDashboardSummary(period, customStart, customEnd));
@@ -113,4 +132,16 @@ export function registerIpcHandlers(): void {
     const html = buildPnlPdfHtml(pnl);
     openPdfPreviewWindow(`Profit & Loss Statement - ${pnl.periodLabel}`, html);
   });
+
+  // Enterprise Security & Lockscreen PIN
+  ipcMain.handle('security:get-status', () => securityService.getSecurityStatus());
+  ipcMain.handle('security:verify-pin', (_, pin: string) => securityService.verifyPin(pin));
+  ipcMain.handle('security:set-pin', (_, pin: string) => securityService.setPin(pin));
+  ipcMain.handle('security:change-pin', (_, { currentPin, newPin }) =>
+    securityService.changePin(currentPin, newPin)
+  );
+  ipcMain.handle('security:disable-pin', (_, pin: string) => securityService.disablePin(pin));
+  ipcMain.handle('security:update-settings', (_, { autoLockMinutes }) =>
+    securityService.updateSecuritySettings(autoLockMinutes)
+  );
 }

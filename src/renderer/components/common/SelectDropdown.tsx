@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 
 export interface SelectOption {
@@ -37,30 +37,41 @@ export const SelectDropdown: React.FC<SelectDropdownProps> = ({
 
   const selectedOption = options.find((opt) => opt.value === value);
 
-  // Auto-detect whether to open UPWARD or DOWNWARD based on modal and viewport boundaries
-  useEffect(() => {
-    if (isOpen) {
-      if (direction === 'up') {
-        setOpenUpward(true);
-      } else if (direction === 'down') {
-        setOpenUpward(false);
-      } else if (dropdownRef.current) {
-        const rect = dropdownRef.current.getBoundingClientRect();
-        
-        // Find enclosing modal card or body
-        const modalEl = dropdownRef.current.closest('[role="dialog"], .modal-card') || document.body;
-        const modalRect = modalEl.getBoundingClientRect();
-        
-        const spaceBelowInModal = modalRect.bottom - rect.bottom;
-        const spaceBelowInViewport = window.innerHeight - rect.bottom;
-        
-        // Available space below is constrained by the tighter of modal or viewport boundary
-        const availableSpaceBelow = Math.min(spaceBelowInModal, spaceBelowInViewport);
-        
-        setOpenUpward(availableSpaceBelow < 230);
-      }
+  // Synchronously determine direction BEFORE opening or rendering
+  const calculateDirection = useCallback((): boolean => {
+    if (direction === 'up') return true;
+    if (direction === 'down') return false;
+    if (dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const modalEl = dropdownRef.current.closest('[role="dialog"], .modal-card') || document.body;
+      const modalRect = modalEl.getBoundingClientRect();
+      
+      const spaceBelowInModal = modalRect.bottom - rect.bottom;
+      const spaceBelowInViewport = window.innerHeight - rect.bottom;
+      const availableSpaceBelow = Math.min(spaceBelowInModal, spaceBelowInViewport);
+      
+      return availableSpaceBelow < 240;
     }
-  }, [isOpen, direction]);
+    return false;
+  }, [direction]);
+
+  // Synchronously recalculate before paint whenever isOpen changes
+  useLayoutEffect(() => {
+    if (isOpen) {
+      setOpenUpward(calculateDirection());
+    }
+  }, [isOpen, calculateDirection]);
+
+  // Toggle handler computes direction synchronously
+  const handleToggle = () => {
+    if (disabled) return;
+    if (!isOpen) {
+      setOpenUpward(calculateDirection());
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
+  };
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -93,7 +104,7 @@ export const SelectDropdown: React.FC<SelectDropdownProps> = ({
         type="button"
         data-select-trigger="true"
         disabled={disabled}
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={handleToggle}
         className={`w-full ${baseStyle} focus:border-violet-600 focus:outline-none transition-all duration-200 flex items-center justify-between gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed ${
           isOpen ? 'ring-4 ring-violet-500/15 border-violet-600 bg-white shadow-md' : ''
         }`}

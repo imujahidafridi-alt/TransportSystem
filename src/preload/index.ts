@@ -32,11 +32,17 @@ const api = {
   getMaintenanceRecords: (vehicleId?: string) => ipcRenderer.invoke('maintenance:get-all', vehicleId),
   createMaintenanceRecord: (data: any) => ipcRenderer.invoke('maintenance:create', data),
 
-  // Salaries
-  getSalaries: (driverId?: string) => ipcRenderer.invoke('salaries:get-all', driverId),
+  // Salaries & Batch Payroll Engine
+  getSalaries: (filter?: { period?: string; driverId?: string; status?: string }) => ipcRenderer.invoke('salaries:get-all', filter),
   calculateDriverPayroll: (driverId: string, salaryPeriod: string) => ipcRenderer.invoke('salaries:calculate-payroll', { driverId, salaryPeriod }),
   createSalaryRecord: (data: any) => ipcRenderer.invoke('salaries:create', data),
   updateSalaryStatus: (id: string, status: string, date?: string) => ipcRenderer.invoke('salaries:update-status', { id, status, date }),
+  generatePayrollDraft: (period: string, createdBy?: string) => ipcRenderer.invoke('salaries:generate-draft', { period, createdBy }),
+  finalizePayroll: (period: string, salaryRecordIds?: string[], finalizedBy?: string) => ipcRenderer.invoke('salaries:finalize', { period, salaryRecordIds, finalizedBy }),
+  markSalariesPaid: (payload: { salaryRecordIds: string[]; paymentDate: string; paymentMethod: string; paymentReference?: string; paidBy: string }) => ipcRenderer.invoke('salaries:mark-paid', payload),
+  addSalaryAdjustment: (data: { salaryRecordId: string; adjustmentType: 'BONUS' | 'DEDUCTION' | 'ADVANCE'; amount: number; reason: string; createdBy?: string }) => ipcRenderer.invoke('salaries:add-adjustment', data),
+  deleteSalaryAdjustment: (id: string) => ipcRenderer.invoke('salaries:delete-adjustment', id),
+  getMasterPayrollSummary: (period: string) => ipcRenderer.invoke('salaries:master-summary', period),
 
   // Dashboard & Reports
   getDashboardSummary: (params: { period?: string; customStart?: string; customEnd?: string } = {}) => ipcRenderer.invoke('dashboard:summary', params),
@@ -61,6 +67,16 @@ const api = {
   openReportPdfPreview: (params: any) => ipcRenderer.invoke('pdf:open-report-preview', params),
   openDriverLedgerPdfPreview: (params: any) => ipcRenderer.invoke('pdf:open-driver-ledger-preview', params),
   openPnlPdfPreview: (pnl: any) => ipcRenderer.invoke('pdf:open-pnl-preview', pnl),
+
+  // Enterprise Security & Lockscreen PIN
+  getSecurityStatus: () => ipcRenderer.invoke('security:get-status'),
+  verifyPin: (pin: string) => ipcRenderer.invoke('security:verify-pin', pin),
+  setPin: (pin: string) => ipcRenderer.invoke('security:set-pin', pin),
+  changePin: (currentPin: string, newPin: string) =>
+    ipcRenderer.invoke('security:change-pin', { currentPin, newPin }),
+  disablePin: (pin: string) => ipcRenderer.invoke('security:disable-pin', pin),
+  updateSecuritySettings: (autoLockMinutes: number) =>
+    ipcRenderer.invoke('security:update-settings', { autoLockMinutes }),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);

@@ -18,103 +18,28 @@ export const Modal: React.FC<ModalProps> = ({
   maxWidth = 'md',
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
-  // Strict Focus Trap, Auto-Focus, and Enter Key "Next Field" Navigation
+  // 1. Initial Auto-Focus on Modal Open (runs only once upon opening)
   useEffect(() => {
     if (!isOpen) return;
 
-    // Helper: Find all focusable elements inside the modal
-    const getFocusables = (): HTMLElement[] => {
-      if (!modalRef.current) return [];
-      const nodes = modalRef.current.querySelectorAll<HTMLElement>(
-        'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      return Array.from(nodes).filter(
-        (el) => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
-      );
-    };
-
-    // Helper: Find interactive form inputs (for Enter key navigation)
-    const getFormInputs = (): HTMLElement[] => {
-      if (!modalRef.current) return [];
-      const nodes = modalRef.current.querySelectorAll<HTMLElement>(
-        'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [data-select-trigger="true"]'
-      );
-      return Array.from(nodes).filter(
-        (el) => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
-      );
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. ESCAPE: Close modal
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-        return;
-      }
-
-      // 2. TAB / SHIFT+TAB: Strict Focus Trap inside Modal
-      if (e.key === 'Tab') {
-        const focusables = getFocusables();
-        if (focusables.length === 0) {
-          e.preventDefault();
-          return;
-        }
-
-        const firstEl = focusables[0];
-        const lastEl = focusables[focusables.length - 1];
-
-        if (e.shiftKey) {
-          // Backward tab: cycle from first element back to last element
-          if (document.activeElement === firstEl || !modalRef.current?.contains(document.activeElement)) {
-            e.preventDefault();
-            lastEl.focus();
-          }
-        } else {
-          // Forward tab: cycle from last element forward to first element
-          if (document.activeElement === lastEl || !modalRef.current?.contains(document.activeElement)) {
-            e.preventDefault();
-            firstEl.focus();
-          }
-        }
-        return;
-      }
-
-      // 3. ENTER KEY: Move focus to the next input field (or submit if on last field / button)
-      if (e.key === 'Enter') {
-        const active = document.activeElement as HTMLElement | null;
-        if (!active || !modalRef.current?.contains(active)) return;
-
-        // If active element is a TEXTAREA, allow native newline unless Ctrl is pressed
-        if (active.tagName === 'TEXTAREA' && !e.ctrlKey) {
-          return;
-        }
-
-        // If active element is a BUTTON (e.g. Save, Cancel, Close), allow native button action
-        if (active.tagName === 'BUTTON' && !active.hasAttribute('data-select-trigger')) {
-          return;
-        }
-
-        // Sequential Form Input Navigation:
-        const inputs = getFormInputs();
-        const currentIndex = inputs.indexOf(active);
-
-        if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-          // Move focus to next input field
-          e.preventDefault();
-          inputs[currentIndex + 1].focus();
-        }
-        // If on the last input field, pressing Enter lets native form submit proceed to save record!
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-
-    // Auto-focus first input field inside modal after React DOM animation tick
     const timer = setTimeout(() => {
-      const focusables = getFocusables();
+      // If focus is already inside modal, do not disrupt the user
+      if (modalRef.current && modalRef.current.contains(document.activeElement)) {
+        return;
+      }
+      if (!modalRef.current) return;
+
+      const nodes = modalRef.current.querySelectorAll<HTMLElement>(
+        'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [data-select-trigger="true"], button:not([disabled])'
+      );
+      const focusables = Array.from(nodes).filter(
+        (el) => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
+      );
+
       if (focusables.length > 0) {
-        // Prefer first actual input or select field over close button
         const firstInput = focusables.find(
           (el) => el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.hasAttribute('data-select-trigger')
         );
@@ -126,11 +51,87 @@ export const Modal: React.FC<ModalProps> = ({
       }
     }, 60);
 
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('keydown', handleKeyDown);
+    return () => clearTimeout(timer);
+  }, [isOpen]);
+
+  // 2. Keyboard Trap & Enter Key Navigation
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const getFocusables = (): HTMLElement[] => {
+      if (!modalRef.current) return [];
+      const nodes = modalRef.current.querySelectorAll<HTMLElement>(
+        'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      return Array.from(nodes).filter(
+        (el) => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
+      );
     };
-  }, [isOpen, onClose]);
+
+    const getFormInputs = (): HTMLElement[] => {
+      if (!modalRef.current) return [];
+      const nodes = modalRef.current.querySelectorAll<HTMLElement>(
+        'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [data-select-trigger="true"]'
+      );
+      return Array.from(nodes).filter(
+        (el) => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
+      );
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape: Close modal
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+
+      // Tab / Shift+Tab: Strict Focus Trap inside Modal
+      if (e.key === 'Tab') {
+        const focusables = getFocusables();
+        if (focusables.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const firstEl = focusables[0];
+        const lastEl = focusables[focusables.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstEl || !modalRef.current?.contains(document.activeElement)) {
+            e.preventDefault();
+            lastEl.focus();
+          }
+        } else {
+          if (document.activeElement === lastEl || !modalRef.current?.contains(document.activeElement)) {
+            e.preventDefault();
+            firstEl.focus();
+          }
+        }
+        return;
+      }
+
+      // Enter Key: Move to next field
+      if (e.key === 'Enter') {
+        const active = document.activeElement as HTMLElement | null;
+        if (!active || !modalRef.current?.contains(active)) return;
+
+        if (active.tagName === 'TEXTAREA' && !e.ctrlKey) return;
+        if (active.tagName === 'BUTTON' && !active.hasAttribute('data-select-trigger')) return;
+
+        const inputs = getFormInputs();
+        const currentIndex = inputs.indexOf(active);
+
+        if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+          e.preventDefault();
+          inputs[currentIndex + 1].focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

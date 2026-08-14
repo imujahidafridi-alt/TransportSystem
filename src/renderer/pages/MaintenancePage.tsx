@@ -133,6 +133,22 @@ export const MaintenancePage: React.FC = () => {
       render: (m) => m.vendor || '-',
     },
     {
+      key: 'classification',
+      header: 'Classification',
+      align: 'center',
+      render: (m) => (
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-2xs whitespace-nowrap ${
+            m.transportId
+              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+              : 'bg-amber-50 text-amber-800 border border-amber-200'
+          }`}
+        >
+          {m.transportId ? 'TRIP COST' : 'VEHICLE COST'}
+        </span>
+      ),
+    },
+    {
       key: 'amount',
       header: 'Amount (AED)',
       align: 'right',

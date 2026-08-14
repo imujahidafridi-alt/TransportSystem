@@ -1,4 +1,5 @@
 export const KEYBOARD_SHORTCUTS = [
+  { key: 'Ctrl + L', action: 'Lock App Screen', description: 'Instantly locks the application session behind PIN protection' },
   { key: 'Ctrl + B', action: 'Cloud Backup Sync', description: 'Triggers instant off-site cloud backup from anywhere' },
   { key: 'Ctrl + N', action: 'New Transport / Record', description: 'Opens creation form' },
   { key: 'Ctrl + S', action: 'Save Form', description: 'Submits current active form' },

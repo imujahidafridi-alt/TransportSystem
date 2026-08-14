@@ -107,21 +107,25 @@ export const ExcelTransportGrid: React.FC<ExcelTransportGridProps> = ({
       key: 'totalDirectCosts',
       header: 'Trip Costs',
       align: 'center',
+      className: 'whitespace-nowrap',
+      headerClassName: 'whitespace-nowrap',
       render: (t) => {
         const hasCosts = (t.totalDirectCosts || 0) > 0;
         return (
           <button
             onClick={() => onOpenCosts?.(t)}
             disabled={t.status === 'CANCELLED'}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition cursor-pointer ${
+            className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold whitespace-nowrap transition cursor-pointer select-none ${
               hasCosts
                 ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/80 shadow-2xs'
                 : 'bg-slate-100/80 text-slate-500 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300 border border-slate-200/60'
             }`}
             title="Click to view or edit linked trip costs"
           >
-            <Receipt className="w-3.5 h-3.5 shrink-0" />
-            <span>{hasCosts ? `AED ${(t.totalDirectCosts || 0).toLocaleString()}` : '+ Add Costs'}</span>
+            <Receipt className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+            <span className="whitespace-nowrap leading-none">
+              {hasCosts ? `AED ${(t.totalDirectCosts || 0).toLocaleString()}` : '+ Add Costs'}
+            </span>
           </button>
         );
       },

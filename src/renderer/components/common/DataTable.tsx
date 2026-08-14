@@ -10,7 +10,7 @@ import { SelectDropdown } from './SelectDropdown';
 
 export interface Column<T> {
   key: string;
-  header: string;
+  header: string | React.ReactNode;
   headerClassName?: string;
   className?: string;
   align?: 'left' | 'center' | 'right';

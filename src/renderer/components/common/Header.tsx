@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Cloud, CheckCircle, AlertCircle } from 'lucide-react';
-import { Button } from './Button';
+import { Cloud, CheckCircle, AlertCircle, Lock, Shield } from 'lucide-react';
 import { useKeyboardShortcuts } from '../../context/KeyboardShortcutContext';
+import { useSecurity } from '../../context/SecurityContext';
 
 export const Header: React.FC<{ activeTabTitle: string }> = ({ activeTabTitle }) => {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [backupMessage, setBackupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const { registerAction } = useKeyboardShortcuts();
+  const { isPinSet, isEnabled, lockApp, openSettings } = useSecurity();
 
   const handleManualCloudBackup = async () => {
     setIsBackingUp(true);
@@ -41,7 +42,7 @@ export const Header: React.FC<{ activeTabTitle: string }> = ({ activeTabTitle })
         <h2 className="font-extrabold text-slate-900 text-base tracking-tight">{activeTabTitle}</h2>
       </div>
 
-      <div className="flex items-center gap-3 text-xs">
+      <div className="flex items-center gap-2.5 text-xs">
         {backupMessage && (
           <div
             className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 animate-in fade-in duration-200 ${
@@ -59,19 +60,50 @@ export const Header: React.FC<{ activeTabTitle: string }> = ({ activeTabTitle })
           </div>
         )}
 
-        <Button
+        {/* 1. Cloud Backup Button */}
+        <button
+          type="button"
           onClick={handleManualCloudBackup}
-          isLoading={isBackingUp}
-          icon={<Cloud className="w-4 h-4 text-white" />}
-          size="sm"
-          className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl shadow-sm hover:shadow-emerald-500/25 border border-emerald-400/30 transition-all duration-200"
+          disabled={isBackingUp}
+          className="h-9 px-3.5 rounded-xl bg-white hover:bg-emerald-50/70 active:bg-emerald-100/70 text-slate-700 hover:text-emerald-900 border border-slate-200/90 hover:border-emerald-300/80 shadow-2xs transition-all duration-150 flex items-center gap-2 font-semibold select-none disabled:opacity-50"
           title="Press Ctrl+B to trigger cloud backup sync from anywhere"
         >
-          <span>{isBackingUp ? 'Syncing Cloud...' : 'Backup System Data'}</span>
-          <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-white/20 text-[10px] font-mono text-white font-semibold">
+          <Cloud className={`w-4 h-4 text-emerald-600 ${isBackingUp ? 'animate-bounce' : ''}`} />
+          <span>{isBackingUp ? 'Syncing...' : 'Backup'}</span>
+          <kbd className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-mono text-[10px] font-bold border border-slate-200/80">
             Ctrl+B
-          </span>
-        </Button>
+          </kbd>
+        </button>
+
+        {/* 2. Security & Lock Controls */}
+        {isEnabled && isPinSet && (
+          <button
+            type="button"
+            onClick={lockApp}
+            className="h-9 px-3.5 rounded-xl bg-white hover:bg-violet-50/70 active:bg-violet-100/70 text-slate-700 hover:text-violet-900 border border-slate-200/90 hover:border-violet-300/80 shadow-2xs transition-all duration-150 flex items-center gap-2 font-semibold select-none"
+            title="Lock app screen immediately (Ctrl+L)"
+          >
+            <Lock className="w-3.5 h-3.5 text-violet-600" />
+            <span>Lock</span>
+            <kbd className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-mono text-[10px] font-bold border border-slate-200/80">
+              Ctrl+L
+            </kbd>
+          </button>
+        )}
+
+        {/* 3. Security Settings Button */}
+        <button
+          type="button"
+          onClick={openSettings}
+          className={`h-9 w-9 rounded-xl flex items-center justify-center border shadow-2xs transition-all duration-150 select-none ${
+            isEnabled && isPinSet
+              ? 'bg-white hover:bg-violet-50 text-slate-500 hover:text-violet-700 border-slate-200/90 hover:border-violet-300/80'
+              : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
+          }`}
+          title="Security & Lockscreen PIN Settings"
+        >
+          <Shield className="w-4 h-4" />
+        </button>
       </div>
     </header>
   );
