@@ -130,6 +130,7 @@ export interface TripCostsPayload {
     rate: number;
     totalAmount: number;
     vendor?: string;
+    odometer?: number;
   } | null;
   toll?: {
     amount: number;

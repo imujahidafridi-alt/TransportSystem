@@ -49,6 +49,7 @@ export const TripCostDrawer: React.FC<TripCostDrawerProps> = ({
   const [fuelRate, setFuelRate] = useState<number | ''>('');
   const [fuelTotal, setFuelTotal] = useState<number | ''>('');
   const [fuelVendor, setFuelVendor] = useState('');
+  const [fuelOdometer, setFuelOdometer] = useState<number | ''>('');
 
   // Toll / Salik State
   const [tollAmount, setTollAmount] = useState<number | ''>('');
@@ -83,11 +84,13 @@ export const TripCostDrawer: React.FC<TripCostDrawerProps> = ({
           setFuelRate(res.fuel.rate || '');
           setFuelTotal(res.fuel.totalAmount || '');
           setFuelVendor(res.fuel.vendor || '');
+          setFuelOdometer(res.fuel.odometer ?? '');
         } else {
           setFuelQuantity('');
           setFuelRate('');
           setFuelTotal('');
           setFuelVendor('');
+          setFuelOdometer('');
         }
 
         if (res.toll) {
@@ -200,6 +203,7 @@ export const TripCostDrawer: React.FC<TripCostDrawerProps> = ({
                 rate: Number(fuelRate || (numFuel && fuelQuantity ? numFuel / Number(fuelQuantity) : 0)),
                 totalAmount: numFuel,
                 vendor: fuelVendor.trim() || undefined,
+                odometer: fuelOdometer !== '' ? Number(fuelOdometer) : undefined,
               }
             : null,
         toll:
@@ -401,17 +405,40 @@ export const TripCostDrawer: React.FC<TripCostDrawerProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                    Fuel Station / Vendor
-                  </label>
-                  <input
-                    type="text"
-                    value={fuelVendor}
-                    onChange={(e) => setFuelVendor(e.target.value)}
-                    placeholder="Station / Vendor (e.g. ENOC JAFZA, ADNOC Oasis)"
-                    className="h-10 w-full bg-white border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-3 text-xs text-slate-800 font-medium focus:outline-none transition"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                      Fuel Station / Vendor
+                    </label>
+                    <input
+                      type="text"
+                      value={fuelVendor}
+                      onChange={(e) => setFuelVendor(e.target.value)}
+                      placeholder="e.g. ENOC JAFZA, ADNOC Oasis"
+                      className="h-10 w-full bg-white border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-3 text-xs text-slate-800 font-medium focus:outline-none transition shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
+                      <span>Odometer (KM)</span>
+                      <span className="text-[9px] text-sky-600 font-bold lowercase">2-way linked</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={fuelOdometer}
+                        onChange={(e) =>
+                          setFuelOdometer(e.target.value === '' ? '' : Number(e.target.value))
+                        }
+                        placeholder="e.g. 145000"
+                        className="h-10 w-full bg-white border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-3 pr-10 text-xs font-mono font-bold text-slate-900 focus:outline-none transition shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 font-mono pointer-events-none">
+                        KM
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -139,7 +139,7 @@ export const LockScreen: React.FC = () => {
         </div>
 
         <h2 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center justify-center gap-1.5">
-          <span>🔒 Application Locked</span>
+          <span>Application Locked</span>
         </h2>
         <p className="text-xs text-slate-500 mt-0.5 mb-4">
           Welcome back! Enter PIN to resume session

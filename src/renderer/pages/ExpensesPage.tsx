@@ -1,32 +1,92 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { VehicleExpense, Vehicle } from '@shared/types';
-import { Plus, Truck, Edit3, Link as LinkIcon, CreditCard, Building } from 'lucide-react';
+import {
+  Plus,
+  Truck,
+  Edit3,
+  Link as LinkIcon,
+  CreditCard,
+  Building,
+  DollarSign,
+  Receipt,
+  Wrench,
+  Sparkles,
+  Shield,
+  FileCheck,
+  AlertTriangle,
+  PenTool,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { useKeyboardShortcuts } from '../context/KeyboardShortcutContext';
 import { SearchBox } from '../components/common/SearchBox';
 import { DataTable, Column } from '../components/common/DataTable';
-import { SelectDropdown } from '../components/common/SelectDropdown';
+import { SelectDropdown, SelectOption } from '../components/common/SelectDropdown';
 import { Button } from '../components/common/Button';
 import { ExportButton } from '../components/common/ExportButton';
 import { PrintButton } from '../components/common/PrintButton';
 import { Modal } from '../components/common/Modal';
 
-const PRESET_CATEGORIES = [
-  { value: 'Oil Change', label: '🔧 Oil Change' },
-  { value: 'Engine Repair', label: '🔧 Engine Repair' },
-  { value: 'Tyre Replacement', label: '🔧 Tyre Replacement' },
-  { value: 'Brake Repair', label: '🔧 Brake Repair' },
-  { value: 'General Workshop', label: '🔧 General Workshop Service' },
-  { value: 'Salik / Tolls', label: '🧾 Salik / Toll Gate' },
-  { value: 'Vehicle Insurance', label: '🧾 Vehicle Insurance' },
-  { value: 'Registration Renewal', label: '🧾 Registration & Inspection' },
-  { value: 'Traffic Fines', label: '🧾 Traffic Fines / Violation' },
-  { value: 'CUSTOM_MANUAL', label: '✍️ Other (Type Custom Expense Category)' },
+const PRESET_CATEGORIES: SelectOption[] = [
+  {
+    value: 'Oil Change',
+    label: 'Oil Change',
+    icon: <Wrench className="w-3.5 h-3.5 text-amber-600 shrink-0" />,
+  },
+  {
+    value: 'Engine Repair',
+    label: 'Engine Repair',
+    icon: <Wrench className="w-3.5 h-3.5 text-rose-600 shrink-0" />,
+  },
+  {
+    value: 'Tyre Replacement',
+    label: 'Tyre Replacement',
+    icon: <Wrench className="w-3.5 h-3.5 text-indigo-600 shrink-0" />,
+  },
+  {
+    value: 'Brake Repair',
+    label: 'Brake Repair',
+    icon: <Wrench className="w-3.5 h-3.5 text-orange-600 shrink-0" />,
+  },
+  {
+    value: 'General Workshop',
+    label: 'General Workshop Service',
+    icon: <Wrench className="w-3.5 h-3.5 text-violet-600 shrink-0" />,
+  },
+  {
+    value: 'Salik / Tolls',
+    label: 'Salik / Toll Gate',
+    icon: <Receipt className="w-3.5 h-3.5 text-sky-600 shrink-0" />,
+  },
+  {
+    value: 'Vehicle Insurance',
+    label: 'Vehicle Insurance',
+    icon: <Shield className="w-3.5 h-3.5 text-emerald-600 shrink-0" />,
+  },
+  {
+    value: 'Registration Renewal',
+    label: 'Registration & Inspection',
+    icon: <FileCheck className="w-3.5 h-3.5 text-teal-600 shrink-0" />,
+  },
+  {
+    value: 'Traffic Fines',
+    label: 'Traffic Fines / Violation',
+    icon: <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />,
+  },
+  {
+    value: 'CUSTOM_MANUAL',
+    label: 'Other (Type Custom Category)',
+    icon: <PenTool className="w-3.5 h-3.5 text-slate-600 shrink-0" />,
+  },
 ];
 
 export const ExpensesPage: React.FC = () => {
   const [expenses, setExpenses] = useState<VehicleExpense[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [isAllTime, setIsAllTime] = useState(false);
   const [search, setSearch] = useState('');
   const [costFilter, setCostFilter] = useState<'ALL' | 'DIRECT_TRIP' | 'OVERHEAD' | 'PAYROLL'>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,6 +103,10 @@ export const ExpensesPage: React.FC = () => {
   const [isQuickVehicleOpen, setIsQuickVehicleOpen] = useState(false);
   const [quickVehicleReg, setQuickVehicleReg] = useState('');
   const [quickVehicleType, setQuickVehicleType] = useState('Trailer Truck');
+
+  const monthInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const { registerAction } = useKeyboardShortcuts();
 
   const handleQuickAddVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,17 +126,22 @@ export const ExpensesPage: React.FC = () => {
     }
   };
 
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const { registerAction } = useKeyboardShortcuts();
-
   // Keyboard Shortcuts Registration (Ctrl+N & Ctrl+F)
   useEffect(() => {
-    const unregNew = registerAction('NEW_RECORD', () => {
-      setIsModalOpen(true);
-    }, 'expenses');
-    const unregSearch = registerAction('SEARCH_FOCUS', () => {
-      searchInputRef.current?.focus();
-    }, 'expenses');
+    const unregNew = registerAction(
+      'NEW_RECORD',
+      () => {
+        setIsModalOpen(true);
+      },
+      'expenses'
+    );
+    const unregSearch = registerAction(
+      'SEARCH_FOCUS',
+      () => {
+        searchInputRef.current?.focus();
+      },
+      'expenses'
+    );
     return () => {
       unregNew();
       unregSearch();
@@ -95,11 +164,28 @@ export const ExpensesPage: React.FC = () => {
     loadData();
   }, [selectedVehicleId]);
 
+  // Month Navigation
+  const navigateMonth = (direction: number) => {
+    setIsAllTime(false);
+    const currentPeriod = selectedMonth || new Date().toISOString().slice(0, 7);
+    const [year, month] = currentPeriod.split('-').map(Number);
+    const dateObj = new Date(year, month - 1 + direction, 1);
+    const nextPeriod = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+    setSelectedMonth(nextPeriod);
+  };
+
+  const formattedPeriodTitle = useMemo(() => {
+    if (isAllTime || !selectedMonth) return 'All Months';
+    const [year, month] = selectedMonth.split('-').map(Number);
+    if (isNaN(year) || isNaN(month)) return selectedMonth;
+    const dateObj = new Date(year, month - 1, 1);
+    return dateObj.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }, [selectedMonth, isAllTime]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vehicleId || !amount) return;
 
-    // Resolve expense type: preset or manual custom entry
     const finalExpenseType =
       categoryPreset === 'CUSTOM_MANUAL'
         ? customCategory.trim() || 'General Expense'
@@ -115,32 +201,72 @@ export const ExpensesPage: React.FC = () => {
     });
     setIsModalOpen(false);
     setCustomCategory('');
+    setAmount('');
+    setDescription('');
+    setVendor('');
     loadData();
   };
 
-  const filteredExpenses = expenses.filter((e) => {
-    // Cost Classification Filter
-    if (costFilter === 'DIRECT_TRIP' && !e.transportId) return false;
-    if (costFilter === 'OVERHEAD' && (e.transportId || e.expenseType === 'Driver Payroll')) return false;
-    if (costFilter === 'PAYROLL' && e.expenseType !== 'Driver Payroll') return false;
+  // Month & Category Filtered Records
+  const monthFilteredExpenses = useMemo(() => {
+    if (isAllTime || !selectedMonth) return expenses;
+    return expenses.filter((e) => e.date && e.date.startsWith(selectedMonth));
+  }, [expenses, selectedMonth, isAllTime]);
 
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      e.vehicleRegistration?.toLowerCase().includes(q) ||
-      e.expenseType.toLowerCase().includes(q) ||
-      e.description?.toLowerCase().includes(q) ||
-      e.vendor?.toLowerCase().includes(q) ||
-      e.transportNo?.toLowerCase().includes(q)
-    );
-  });
+  const filteredExpenses = useMemo(() => {
+    return monthFilteredExpenses.filter((e) => {
+      // Cost Classification Filter
+      if (costFilter === 'DIRECT_TRIP' && !e.transportId) return false;
+      if (costFilter === 'OVERHEAD' && (e.transportId || e.expenseType === 'Driver Payroll')) return false;
+      if (costFilter === 'PAYROLL' && e.expenseType !== 'Driver Payroll') return false;
 
-  const directTripCount = expenses.filter((e) => Boolean(e.transportId)).length;
-  const overheadCount = expenses.filter((e) => !e.transportId && e.expenseType !== 'Driver Payroll').length;
-  const payrollCount = expenses.filter((e) => e.expenseType === 'Driver Payroll').length;
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        e.vehicleRegistration?.toLowerCase().includes(q) ||
+        e.expenseType.toLowerCase().includes(q) ||
+        e.description?.toLowerCase().includes(q) ||
+        e.vendor?.toLowerCase().includes(q) ||
+        e.transportNo?.toLowerCase().includes(q)
+      );
+    });
+  }, [monthFilteredExpenses, costFilter, search]);
+
+  // Financial Metrics Summary Computation for the Selected Month/View
+  const summary = useMemo(() => {
+    const totalAmount = filteredExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
+
+    const directTripExpenses = monthFilteredExpenses.filter((e) => Boolean(e.transportId));
+    const directTripSum = directTripExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
+
+    const overheadExpenses = monthFilteredExpenses.filter((e) => !e.transportId && e.expenseType !== 'Driver Payroll');
+    const overheadSum = overheadExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
+
+    const payrollExpenses = monthFilteredExpenses.filter((e) => e.expenseType === 'Driver Payroll');
+    const payrollSum = payrollExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
+
+    return {
+      totalAmount,
+      directTripCount: directTripExpenses.length,
+      directTripSum,
+      overheadCount: overheadExpenses.length,
+      overheadSum,
+      payrollCount: payrollExpenses.length,
+      payrollSum,
+    };
+  }, [monthFilteredExpenses, filteredExpenses]);
 
   const handleExportCSV = () => {
-    const headers = ['Date', 'Vehicle Reg', 'Invoice #', 'Expense Type', 'Description', 'Vendor', 'Classification', 'Amount (AED)'];
+    const headers = [
+      'Date',
+      'Vehicle Reg',
+      'Invoice #',
+      'Expense Type',
+      'Description',
+      'Vendor',
+      'Classification',
+      'Amount (AED)',
+    ];
     const rows = filteredExpenses.map((e) => [
       e.date,
       e.vehicleRegistration || '',
@@ -148,7 +274,7 @@ export const ExpensesPage: React.FC = () => {
       e.expenseType,
       e.description || '',
       e.vendor || '',
-      e.transportId ? 'Direct Trip Cost' : e.expenseType === 'Driver Payroll' ? 'Driver Payroll' : 'Fleet Overhead',
+      e.transportId ? 'Direct Trip Expense' : e.expenseType === 'Driver Payroll' ? 'Driver Payroll' : 'Fleet Overhead',
       e.amount,
     ]);
     const csvContent = [headers.join(','), ...rows.map((r) => r.map((cell) => `"${cell}"`).join(','))].join('\n');
@@ -156,7 +282,8 @@ export const ExpensesPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Expenses_Ledger_${new Date().toISOString().slice(0, 10)}.csv`;
+    const fileSuffix = isAllTime ? 'All_Time' : selectedMonth || new Date().toISOString().slice(0, 7);
+    link.download = `Expenses_Ledger_${fileSuffix}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -173,20 +300,23 @@ export const ExpensesPage: React.FC = () => {
       { key: 'classificationDisplay', header: 'Classification' },
       { key: 'amountFormatted', header: 'Amount (AED)', align: 'right' as const },
     ];
-    const totalAmount = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
 
     window.electronAPI.openReportPdfPreview({
-      title: 'Operating Expenses & Maintenance Ledger',
-      description: `Showing ${filteredExpenses.length} expense records`,
+      title: `Operating Expenses & Maintenance Ledger (${formattedPeriodTitle})`,
+      description: `Showing ${filteredExpenses.length} expense records for ${formattedPeriodTitle}`,
       columns: columnsForPdf,
       data: filteredExpenses.map((e) => ({
         ...e,
         transportNoDisplay: e.transportNo || '-',
-        classificationDisplay: e.transportId ? 'Direct Trip' : e.expenseType === 'Driver Payroll' ? 'Payroll' : 'Overhead',
+        classificationDisplay: e.transportId
+          ? 'Direct Trip'
+          : e.expenseType === 'Driver Payroll'
+          ? 'Payroll'
+          : 'Overhead',
         amountFormatted: e.amount.toLocaleString(),
       })),
       kpis: [
-        { label: 'Total Expense Sum', value: `AED ${totalAmount.toLocaleString()}` },
+        { label: 'Total Period Expenses', value: `AED ${summary.totalAmount.toLocaleString()}` },
         { label: 'Total Records Count', value: `${filteredExpenses.length} Records` },
       ],
       orientation: 'landscape',
@@ -197,16 +327,21 @@ export const ExpensesPage: React.FC = () => {
     {
       key: 'date',
       header: 'Date',
-      className: 'font-mono text-slate-700',
+      className: 'font-mono text-slate-700 whitespace-nowrap',
     },
     {
       key: 'vehicleRegistration',
       header: 'Vehicle Reg',
       className: 'font-mono font-bold text-amber-600',
+      render: (e) => (
+        <span className="font-mono font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+          {e.vehicleRegistration || 'Fleet'}
+        </span>
+      ),
     },
     {
       key: 'expenseType',
-      header: 'Expense / Maintenance Type',
+      header: 'Expense Type',
       render: (e) => {
         const isPayroll = e.expenseType === 'Driver Payroll';
         const isMaintenance = [
@@ -228,22 +363,29 @@ export const ExpensesPage: React.FC = () => {
                 : 'bg-sky-100 text-sky-800'
             }`}
           >
-            {isPayroll ? '💳' : isMaintenance ? '🔧' : '🧾'} {e.expenseType}
+            {isPayroll ? (
+              <CreditCard className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            ) : isMaintenance ? (
+              <Wrench className="w-3.5 h-3.5 text-violet-700 shrink-0" />
+            ) : (
+              <Receipt className="w-3.5 h-3.5 text-sky-700 shrink-0" />
+            )}
+            <span>{e.expenseType}</span>
           </span>
         );
       },
     },
     {
       key: 'description',
-      header: 'Description',
+      header: 'Description & Link',
       className: 'text-slate-700',
       render: (e) => (
         <div className="space-y-0.5">
-          <span className="block">{e.description || '-'}</span>
+          <span className="block font-medium text-slate-900">{e.description || '-'}</span>
           {e.transportNo && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">
-              <LinkIcon className="w-3 h-3" />
-              Invoice # {e.transportNo}
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full border border-violet-200 shadow-2xs font-mono">
+              <LinkIcon className="w-3 h-3 text-violet-600" />
+              Invoice #{e.transportNo}
             </span>
           )}
         </div>
@@ -253,7 +395,7 @@ export const ExpensesPage: React.FC = () => {
       key: 'vendor',
       header: 'Vendor / Payee',
       className: 'text-slate-700 font-medium',
-      render: (e) => e.vendor || '-',
+      render: (e) => e.vendor || '—',
     },
     {
       key: 'classification',
@@ -262,28 +404,32 @@ export const ExpensesPage: React.FC = () => {
       render: (e) => {
         if (e.expenseType === 'Driver Payroll') {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs whitespace-nowrap">
-              PAYROLL
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs whitespace-nowrap">
+              <CreditCard className="w-3 h-3 text-emerald-600" />
+              <span>DRIVER PAYROLL</span>
             </span>
           );
         }
         if (e.transportId) {
           return (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-100 text-violet-800 border border-violet-300 shadow-2xs whitespace-nowrap">
-              🔗 DIRECT TRIP (COGS)
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-50 text-violet-700 border border-violet-200 shadow-2xs whitespace-nowrap">
+              <LinkIcon className="w-3 h-3 text-violet-600" />
+              <span>TRIP EXPENSE</span>
             </span>
           );
         }
         if (e.vehicleId) {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs whitespace-nowrap">
-              FLEET OVERHEAD
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs whitespace-nowrap">
+              <Building className="w-3 h-3 text-amber-600" />
+              <span>FLEET OVERHEAD</span>
             </span>
           );
         }
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
-            GENERAL EXPENSE
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+            <Building className="w-3 h-3 text-slate-500" />
+            <span>GENERAL EXPENSE</span>
           </span>
         );
       },
@@ -293,25 +439,115 @@ export const ExpensesPage: React.FC = () => {
       header: 'Amount (AED)',
       align: 'right',
       className: 'font-mono font-extrabold text-rose-600',
-      render: (e) => e.amount.toLocaleString(),
+      render: (e) => `AED ${e.amount.toLocaleString()}`,
     },
   ];
 
   return (
     <div className="p-6 space-y-4">
-      {/* Top Bar with Search, Filter & Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3 flex-1 min-w-[320px]">
+      {/* 1. Executive Financial KPI Summary Metric Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+        {/* Total Filtered Expenses */}
+        <div className="p-4 bg-white border border-slate-200/90 rounded-2xl flex flex-col justify-between shadow-2xs">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Total Expenses
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <span className="font-mono font-black text-rose-600 text-xl block">
+              AED {summary.totalAmount.toLocaleString()}
+            </span>
+            <span className="text-[11px] text-slate-400 font-medium">
+              {filteredExpenses.length} filtered records ({formattedPeriodTitle})
+            </span>
+          </div>
+        </div>
+
+        {/* Direct Trip Costs */}
+        <div className="p-4 bg-white border border-slate-200/90 rounded-2xl flex flex-col justify-between shadow-2xs">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wider flex items-center gap-1">
+              <LinkIcon className="w-3 h-3" />
+              <span>Trip Expenses</span>
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
+              <Receipt className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <span className="font-mono font-black text-slate-900 text-xl block">
+              AED {summary.directTripSum.toLocaleString()}
+            </span>
+            <span className="text-[11px] text-violet-600 font-medium">
+              {summary.directTripCount} trip-linked costs
+            </span>
+          </div>
+        </div>
+
+        {/* General Fleet Overhead */}
+        <div className="p-4 bg-white border border-slate-200/90 rounded-2xl flex flex-col justify-between shadow-2xs">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
+              <Building className="w-3 h-3" />
+              <span>Fleet Overhead</span>
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+              <Wrench className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <span className="font-mono font-black text-slate-900 text-xl block">
+              AED {summary.overheadSum.toLocaleString()}
+            </span>
+            <span className="text-[11px] text-amber-600 font-medium">
+              {summary.overheadCount} workshop & renewal costs
+            </span>
+          </div>
+        </div>
+
+        {/* Driver Payroll */}
+        <div className="p-4 bg-white border border-slate-200/90 rounded-2xl flex flex-col justify-between shadow-2xs">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1">
+              <CreditCard className="w-3 h-3" />
+              <span>Driver Payroll</span>
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <CreditCard className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <span className="font-mono font-black text-emerald-700 text-xl block">
+              AED {summary.payrollSum.toLocaleString()}
+            </span>
+            <span className="text-[11px] text-emerald-600 font-medium">
+              {summary.payrollCount} salary distributions
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Top Toolbar (Search, Vehicle, Month Navigator & Uniform Action Buttons) */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[320px]">
+          {/* Search Box */}
           <SearchBox
             ref={searchInputRef}
             value={search}
             onChange={setSearch}
-            placeholder="Search expenses by type, vehicle reg, description, vendor or invoice #... (Ctrl+F)"
-            className="max-w-md"
+            placeholder="Search expenses by type, vehicle, description, vendor... (Ctrl+F)"
+            className="w-full max-w-xs"
           />
-          <div className="w-60 shrink-0">
+
+          {/* Vehicle Dropdown */}
+          <div className="w-48 shrink-0">
             <SelectDropdown
               variant="pill"
+              size="sm"
               options={[
                 {
                   value: '',
@@ -329,12 +565,75 @@ export const ExpensesPage: React.FC = () => {
               onChange={setSelectedVehicleId}
             />
           </div>
+
+          {/* Month Filter Navigator Capsule */}
+          <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-full border border-slate-200/80 shadow-2xs text-xs">
+            <button
+              type="button"
+              onClick={() => navigateMonth(-1)}
+              className="w-7 h-7 rounded-full bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 shadow-2xs transition"
+              title="Previous Month"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div
+              onClick={() => monthInputRef.current?.showPicker?.()}
+              className={`px-3 py-1 flex items-center gap-2 cursor-pointer rounded-full transition ${
+                !isAllTime ? 'bg-white text-violet-700 shadow-2xs' : 'text-slate-700 hover:bg-white/60'
+              }`}
+              title="Click to choose a specific month"
+            >
+              <Calendar className="w-3.5 h-3.5 text-violet-600" />
+              <span className="text-xs font-black tracking-tight whitespace-nowrap">
+                {formattedPeriodTitle}
+              </span>
+
+              {/* Native Month Input Attached */}
+              <input
+                ref={monthInputRef}
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setSelectedMonth(e.target.value);
+                    setIsAllTime(false);
+                  }
+                }}
+                className="sr-only"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigateMonth(1)}
+              className="w-7 h-7 rounded-full bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 shadow-2xs transition"
+              title="Next Month"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsAllTime((prev) => !prev)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition ${
+                isAllTime
+                  ? 'bg-violet-600 text-white shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              All Time
+            </button>
+          </div>
         </div>
 
+        {/* Uniform Height Actions (h-9 Pills) */}
         <div className="flex items-center gap-2">
-          <ExportButton onClick={handleExportCSV} />
-          <PrintButton onClick={handlePrintPDF} />
+          <ExportButton size="sm" onClick={handleExportCSV} />
+          <PrintButton size="sm" onClick={handlePrintPDF} />
           <Button
+            size="sm"
+            variant="primary"
             onClick={() => setIsModalOpen(true)}
             icon={<Plus className="w-4 h-4" />}
           >
@@ -343,71 +642,77 @@ export const ExpensesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Enterprise Cost Classification Filter Capsules */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-full border border-slate-200/80 w-fit text-xs">
+      {/* 3. Cost Classification Filter Capsules */}
+      <div className="flex items-center gap-1 p-1 bg-slate-100/90 rounded-full border border-slate-200/80 w-fit text-xs shadow-2xs">
         <button
           onClick={() => setCostFilter('ALL')}
-          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 ${
+          className={`px-3.5 py-1.5 rounded-full font-bold transition-all duration-150 ${
             costFilter === 'ALL'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/70'
+              ? 'bg-white text-violet-700 shadow-2xs'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          All Expenses ({expenses.length})
+          All Expenses ({monthFilteredExpenses.length})
         </button>
         <button
           onClick={() => setCostFilter('DIRECT_TRIP')}
-          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
+          className={`px-3.5 py-1.5 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
             costFilter === 'DIRECT_TRIP'
-              ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/25'
+              ? 'bg-white text-violet-700 shadow-2xs'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <LinkIcon className="w-3.5 h-3.5" />
-          <span>Direct Trip Costs (COGS) ({directTripCount})</span>
+          <LinkIcon className="w-3.5 h-3.5 text-violet-600" />
+          <span>Direct Trip Expenses ({summary.directTripCount})</span>
         </button>
         <button
           onClick={() => setCostFilter('OVERHEAD')}
-          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
+          className={`px-3.5 py-1.5 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
             costFilter === 'OVERHEAD'
-              ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/25'
+              ? 'bg-white text-amber-700 shadow-2xs'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Building className="w-3.5 h-3.5" />
-          <span>Fleet General Overhead ({overheadCount})</span>
+          <Building className="w-3.5 h-3.5 text-amber-600" />
+          <span>Fleet General Overhead ({summary.overheadCount})</span>
         </button>
         <button
           onClick={() => setCostFilter('PAYROLL')}
-          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
+          className={`px-3.5 py-1.5 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
             costFilter === 'PAYROLL'
-              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/25'
+              ? 'bg-white text-emerald-700 shadow-2xs'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <CreditCard className="w-3.5 h-3.5" />
-          <span>Driver Payroll ({payrollCount})</span>
+          <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Driver Payroll ({summary.payrollCount})</span>
         </button>
       </div>
 
+      {/* 4. Expenses Table */}
       <DataTable
         columns={columns}
         data={filteredExpenses}
         keyExtractor={(e) => e.id}
-        emptyMessage="No vehicle expenses or maintenance records logged yet."
+        title={`Fleet Expenses Ledger — ${formattedPeriodTitle}`}
+        countBadge={filteredExpenses.length}
+        emptyMessage={`No vehicle expenses or maintenance records logged for ${formattedPeriodTitle}.`}
       />
 
+      {/* 5. Record Expense Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Record Vehicle Expense / Maintenance"
-        maxWidth="xl"
+        maxWidth="lg"
       >
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSave} className="space-y-4 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-slate-700">Vehicle</label>
+                <label className="text-xs font-bold text-slate-800">
+                  Target Vehicle <span className="text-rose-500">*</span>
+                </label>
                 <button
                   type="button"
                   onClick={() => setIsQuickVehicleOpen(true)}
@@ -429,20 +734,24 @@ export const ExpensesPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Date</label>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Expense Date <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold text-slate-900 focus:outline-none transition-all duration-200 shadow-sm"
+                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold text-slate-900 focus:outline-none transition-all duration-200 shadow-2xs"
                 required
               />
             </div>
           </div>
 
-          {/* DEDICATED SINGLE ROW: Expense Category */}
+          {/* Expense Category Preset */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Expense Category</label>
+            <label className="block text-xs font-bold text-slate-800 mb-1.5">
+              Expense Category <span className="text-rose-500">*</span>
+            </label>
             <SelectDropdown
               options={PRESET_CATEGORIES}
               value={categoryPreset}
@@ -450,7 +759,7 @@ export const ExpensesPage: React.FC = () => {
             />
           </div>
 
-          {/* Manual Custom Entry Input if CUSTOM_MANUAL is selected */}
+          {/* Custom Category Input if CUSTOM_MANUAL is selected */}
           {categoryPreset === 'CUSTOM_MANUAL' && (
             <div className="p-3.5 bg-violet-50/70 border border-violet-200 rounded-2xl space-y-1.5 animate-in fade-in duration-150">
               <label className="block text-xs font-bold text-violet-950 flex items-center gap-1.5">
@@ -462,48 +771,84 @@ export const ExpensesPage: React.FC = () => {
                 value={customCategory}
                 onChange={(e) => setCustomCategory(e.target.value)}
                 placeholder="e.g. Battery Replacement, Parking Fee, Custom Tooling..."
-                className="h-11 w-full bg-white border border-violet-300 focus:border-violet-600 rounded-2xl px-4 text-xs text-slate-900 focus:outline-none transition font-medium shadow-sm"
+                className="h-11 w-full bg-white border border-violet-300 focus:border-violet-600 rounded-2xl px-4 text-xs text-slate-900 focus:outline-none transition font-medium shadow-2xs"
                 required
+                autoFocus
               />
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Amount (AED)</label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value === '' ? '' : Number(e.target.value))}
-              className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-bold text-rose-600 font-mono focus:outline-none transition-all duration-200 shadow-sm"
-              required
-            />
+          {/* Amount & Quick Presets */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800">
+                Amount (AED) <span className="text-rose-500">*</span>
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">Quick Amounts:</span>
+            </div>
+
+            <div className="relative">
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="0"
+                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl pl-4 pr-16 text-sm font-bold text-rose-600 font-mono focus:outline-none transition-all duration-200 shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                required
+              />
+              <span className="absolute right-4 top-3 text-xs font-bold text-slate-400 font-mono">
+                AED
+              </span>
+            </div>
+
+            {/* Quick Amount Pills */}
+            <div className="flex items-center gap-1.5 pt-0.5">
+              {[50, 100, 200, 500, 1000].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setAmount(preset)}
+                  className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition-all duration-150 border ${
+                    amount === preset
+                      ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  AED {preset}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Vendor / Garage / Workshop</label>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Vendor / Garage / Workshop
+              </label>
               <input
                 type="text"
                 value={vendor}
                 onChange={(e) => setVendor(e.target.value)}
-                placeholder="e.g. Dubai Garage, RTA Garage"
-                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold text-slate-900 focus:outline-none transition-all duration-200 shadow-sm"
+                placeholder="e.g. Dubai Auto Care, RTA Workshop"
+                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold text-slate-900 focus:outline-none transition-all duration-200 shadow-2xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Description / Notes</label>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Description / Notes
+              </label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional notes or repair details"
-                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold text-slate-900 focus:outline-none transition-all duration-200 shadow-sm"
+                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold text-slate-900 focus:outline-none transition-all duration-200 shadow-2xs"
               />
             </div>
           </div>
 
-          <div className="pt-2 flex justify-end gap-3">
+          <div className="pt-2 flex justify-end gap-2.5">
             <Button
               type="button"
               variant="secondary"
@@ -516,6 +861,7 @@ export const ExpensesPage: React.FC = () => {
               type="submit"
               variant="primary"
               size="sm"
+              icon={<Sparkles className="w-4 h-4" />}
             >
               Save Expense Record
             </Button>
@@ -530,21 +876,23 @@ export const ExpensesPage: React.FC = () => {
         title="Quick Add Vehicle"
         maxWidth="md"
       >
-        <form onSubmit={handleQuickAddVehicle} className="space-y-4">
+        <form onSubmit={handleQuickAddVehicle} className="space-y-4 text-xs">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Registration Number</label>
+            <label className="block text-xs font-bold text-slate-800 mb-1.5">
+              Registration Number <span className="text-rose-500">*</span>
+            </label>
             <input
               type="text"
               value={quickVehicleReg}
               onChange={(e) => setQuickVehicleReg(e.target.value)}
               placeholder="e.g. DXB-19283"
-              className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold font-mono text-slate-900 focus:outline-none transition"
+              className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold font-mono text-slate-900 focus:outline-none transition shadow-2xs"
               required
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Vehicle Type</label>
+            <label className="block text-xs font-bold text-slate-800 mb-1.5">Vehicle Type</label>
             <SelectDropdown
               options={[
                 { value: 'Trailer Truck', label: 'Trailer Truck' },
@@ -557,8 +905,13 @@ export const ExpensesPage: React.FC = () => {
               onChange={setQuickVehicleType}
             />
           </div>
-          <div className="pt-2 flex justify-end gap-3">
-            <Button type="button" variant="secondary" size="sm" onClick={() => setIsQuickVehicleOpen(false)}>
+          <div className="pt-2 flex justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsQuickVehicleOpen(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" variant="primary" size="sm">

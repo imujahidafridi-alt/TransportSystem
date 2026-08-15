@@ -348,7 +348,7 @@ export const DriverSalariesPage: React.FC = () => {
     const isUnlock = targetStatus === 'DRAFT';
     setConfirmConfig({
       isOpen: true,
-      title: isUnlock ? '🔓 Unlock Payroll Record' : '↺ Revert Payment Status',
+      title: isUnlock ? 'Unlock Payroll Record' : 'Revert Payment Status',
       message: isUnlock
         ? `Are you sure you want to unlock the payroll record for ${s.driverName}? This will return it to Draft and allow you to freely edit trip rates, transports, and adjustments.`
         : `Are you sure you want to revert the payment for ${s.driverName}? This will reset the payment status to Draft so corrections can be made.`,
@@ -366,7 +366,7 @@ export const DriverSalariesPage: React.FC = () => {
   const handleDeleteRecord = (s: DriverSalaryRecord) => {
     setConfirmConfig({
       isOpen: true,
-      title: '🗑️ Delete Salary Record',
+      title: 'Delete Salary Record',
       message: `Are you sure you want to permanently delete the payroll record for ${s.driverName} in ${formattedPeriodTitle}? Any manual adjustments attached will also be removed.`,
       confirmText: 'Delete Record',
       variant: 'danger',
@@ -382,7 +382,7 @@ export const DriverSalariesPage: React.FC = () => {
   const handleReopenMonthPeriod = () => {
     setConfirmConfig({
       isOpen: true,
-      title: '🔓 Reopen Entire Month Payroll',
+      title: 'Reopen Entire Month Payroll',
       message: `Are you sure you want to reopen all finalized payroll records for ${formattedPeriodTitle}? This will unlock all driver records back to Draft so you can adjust rates or re-draft.`,
       confirmText: 'Reopen All Drafts',
       variant: 'warning',
@@ -1167,7 +1167,7 @@ export const DriverSalariesPage: React.FC = () => {
       <Modal
         isOpen={isDraftRateModalOpen}
         onClose={() => setIsDraftRateModalOpen(false)}
-        title={`⚡ Set Trip Rate: ${formattedPeriodTitle}`}
+        title={`Set Trip Rate: ${formattedPeriodTitle}`}
         maxWidth="md"
       >
         <form onSubmit={handleApplyMonthTripRate} className="space-y-4 text-xs">
@@ -1287,7 +1287,7 @@ export const DriverSalariesPage: React.FC = () => {
       <Modal
         isOpen={isDriverRateModalOpen}
         onClose={() => setIsDriverRateModalOpen(false)}
-        title={`⚡ Set Trip Rate: ${selectedSalaryForRate?.driverName || ''} (${formattedPeriodTitle})`}
+        title={`Set Trip Rate: ${selectedSalaryForRate?.driverName || ''} (${formattedPeriodTitle})`}
         maxWidth="md"
       >
         <form onSubmit={handleSaveDriverRate} className="space-y-4 text-xs">
@@ -1397,7 +1397,7 @@ export const DriverSalariesPage: React.FC = () => {
       <Modal
         isOpen={isFinalizeModalOpen}
         onClose={() => setIsFinalizeModalOpen(false)}
-        title="🔒 Finalize Monthly Payroll"
+        title="Finalize Monthly Payroll"
         maxWidth="md"
       >
         <div className="space-y-4 text-xs">
@@ -1444,7 +1444,7 @@ export const DriverSalariesPage: React.FC = () => {
           setIsPayModalOpen(false);
           setSelectedSalaryForPay(null);
         }}
-        title={`💳 Record Payment Disbursement: ${selectedSalaryForPay ? selectedSalaryForPay.driverName : formattedPeriodTitle}`}
+        title={`Record Payment Disbursement: ${selectedSalaryForPay ? selectedSalaryForPay.driverName : formattedPeriodTitle}`}
         maxWidth="md"
       >
         <form onSubmit={handlePayConfirm} className="space-y-4 text-xs">

@@ -132,13 +132,14 @@ export function saveTripCosts(payload: TripCostsPayload): TripCostSummary {
       if (existingFuel) {
         db.prepare(`
           UPDATE fuel_records
-          SET quantity = ?, rate = ?, total_amount = ?, vendor = ?, vehicle_id = ?, date = ?, updated_at = ?
+          SET quantity = ?, rate = ?, total_amount = ?, vendor = ?, odometer = ?, vehicle_id = ?, date = ?, updated_at = ?
           WHERE id = ?
         `).run(
           payload.fuel.quantity,
           payload.fuel.rate,
           payload.fuel.totalAmount,
           payload.fuel.vendor || 'ENOC Station',
+          payload.fuel.odometer !== undefined ? payload.fuel.odometer : null,
           vehicleId,
           tripDate,
           now,
@@ -147,8 +148,8 @@ export function saveTripCosts(payload: TripCostsPayload): TripCostSummary {
       } else {
         const newId = cryptoRandomUUID();
         db.prepare(`
-          INSERT INTO fuel_records (id, transport_id, vehicle_id, date, fuel_type, quantity, unit, rate, total_amount, vendor, created_at, updated_at)
-          VALUES (?, ?, ?, ?, 'DIESEL', ?, 'LITERS', ?, ?, ?, ?, ?)
+          INSERT INTO fuel_records (id, transport_id, vehicle_id, date, fuel_type, quantity, unit, rate, total_amount, vendor, odometer, created_at, updated_at)
+          VALUES (?, ?, ?, ?, 'DIESEL', ?, 'LITERS', ?, ?, ?, ?, ?, ?)
         `).run(
           newId,
           payload.transportId,
@@ -158,6 +159,7 @@ export function saveTripCosts(payload: TripCostsPayload): TripCostSummary {
           payload.fuel.rate,
           payload.fuel.totalAmount,
           payload.fuel.vendor || 'ENOC Station',
+          payload.fuel.odometer !== undefined ? payload.fuel.odometer : null,
           now,
           now
         );

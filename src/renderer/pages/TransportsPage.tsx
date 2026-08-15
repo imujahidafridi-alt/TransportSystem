@@ -121,7 +121,7 @@ export const TransportsPage: React.FC = () => {
         isOpen={!!cancelTransportId}
         onClose={() => setCancelTransportId(null)}
         onConfirm={handleConfirmCancel}
-        title="⚠️ Cancel Transport Record"
+        title="Cancel Transport Record"
         message="Are you sure you want to cancel this transport record? Cancelled records will be marked as cancelled in the ledger and kept for complete audit trail."
         confirmText="Cancel Transport"
         variant="danger"

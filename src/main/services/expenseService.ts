@@ -66,10 +66,10 @@ export function createExpense(data: Omit<VehicleExpense, 'id' | 'createdAt' | 'u
   const id = cryptoRandomUUID();
   const now = new Date().toISOString();
   const stmt = db.prepare(`
-    INSERT INTO vehicle_expenses (id, vehicle_id, date, expense_type, description, quantity, unit_cost, amount, vendor, reference, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO vehicle_expenses (id, transport_id, vehicle_id, date, expense_type, description, quantity, unit_cost, amount, vendor, reference, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  stmt.run(id, data.vehicleId, data.date, data.expenseType, data.description || null, data.quantity || null, data.unitCost || null, data.amount, data.vendor || null, data.reference || null, data.notes || null, now, now);
+  stmt.run(id, data.transportId || null, data.vehicleId, data.date, data.expenseType, data.description || null, data.quantity || null, data.unitCost || null, data.amount, data.vendor || null, data.reference || null, data.notes || null, now, now);
   
   const rec = db.prepare(`
     SELECT e.id, e.transport_id as transportId, t.transport_no as transportNo,
@@ -115,10 +115,10 @@ export function createFuelRecord(data: Omit<FuelRecord, 'id' | 'totalAmount' | '
   const now = new Date().toISOString();
 
   const stmt = db.prepare(`
-    INSERT INTO fuel_records (id, vehicle_id, date, fuel_type, quantity, unit, rate, total_amount, vendor, odometer, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO fuel_records (id, transport_id, vehicle_id, date, fuel_type, quantity, unit, rate, total_amount, vendor, odometer, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  stmt.run(id, data.vehicleId, data.date, data.fuelType || 'DIESEL', data.quantity, data.unit || 'LITERS', data.rate, totalAmount, data.vendor || null, data.odometer || null, data.notes || null, now, now);
+  stmt.run(id, data.transportId || null, data.vehicleId, data.date, data.fuelType || 'DIESEL', data.quantity, data.unit || 'LITERS', data.rate, totalAmount, data.vendor || null, data.odometer || null, data.notes || null, now, now);
 
   const rec = db.prepare(`
     SELECT f.id, f.transport_id as transportId, t.transport_no as transportNo,

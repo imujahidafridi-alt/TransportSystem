@@ -139,7 +139,7 @@ export const SecuritySettingsModal: React.FC = () => {
     <Modal
       isOpen={isSettingsOpen}
       onClose={handleClose}
-      title="🛡️ App Security & PIN Lockscreen"
+      title="App Security & PIN Lockscreen"
       maxWidth="md"
     >
       <div className="space-y-4 text-xs text-slate-700">

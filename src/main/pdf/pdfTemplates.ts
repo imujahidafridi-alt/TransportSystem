@@ -373,12 +373,15 @@ export function buildBaseA4HtmlDocument(
   <!-- Sticky Top Action Bar -->
   <div class="sticky-toolbar">
     <div class="toolbar-title">
-      <span>📄 ${title}</span>
+      <span>${title}</span>
       <span class="badge">A4 ${isLandscape ? 'Landscape' : 'Portrait'} • B&W Optimized</span>
     </div>
     <div class="toolbar-actions">
-      <button class="btn btn-print" onclick="window.print()">🖨️ Print / Export PDF</button>
-      <button class="btn btn-close" onclick="window.close()">✕ Close</button>
+      <button class="btn btn-print" onclick="window.print()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+        Print / Export PDF
+      </button>
+      <button class="btn btn-close" onclick="window.close()">Close</button>
     </div>
   </div>
 
@@ -389,7 +392,9 @@ export function buildBaseA4HtmlDocument(
         <!-- Header Branding -->
         <div class="doc-header">
           <div class="company-brand">
-            <div class="brand-icon">🚚</div>
+            <div class="brand-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18.5" r="2.5"/><circle cx="7" cy="18.5" r="2.5"/></svg>
+            </div>
             <div>
               <span class="company-name">TripLedger</span>
               <div class="company-tagline">Transport & Fleet ERP</div>
