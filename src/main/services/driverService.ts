@@ -120,3 +120,20 @@ export function getDriverById(id: string): Driver | null {
   `).get(id) as Driver | undefined;
   return res || null;
 }
+
+export function deleteDriver(id: string): { success: boolean } {
+  const db = getDb();
+  const linkedTransports = db.prepare('SELECT COUNT(*) as count FROM transports WHERE driver_id = ?').get(id) as { count: number };
+  if (linkedTransports && linkedTransports.count > 0) {
+    throw new Error(`Cannot delete driver: ${linkedTransports.count} transport trip(s) are linked to this driver. You can set the driver's status to 'INACTIVE' instead.`);
+  }
+  const linkedSalaries = db.prepare('SELECT COUNT(*) as count FROM driver_salary_records WHERE driver_id = ?').get(id) as { count: number };
+  if (linkedSalaries && linkedSalaries.count > 0) {
+    throw new Error(`Cannot delete driver: Historical payroll records are linked to this driver. You can set the driver's status to 'INACTIVE' instead.`);
+  }
+
+  db.prepare('DELETE FROM drivers WHERE id = ?').run(id);
+  enqueueSyncOperation('DELETE', 'DRIVERS', id, { id });
+  return { success: true };
+}
+

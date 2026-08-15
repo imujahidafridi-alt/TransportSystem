@@ -94,14 +94,14 @@ export const ReportsPage: React.FC = () => {
         { key: 'vehicleRegistration', header: 'Vehicle' },
         { key: 'driverName', header: 'Driver' },
         { key: 'route', header: 'Route' },
-        { key: 'revenue', header: 'Revenue (AED)', align: 'right' as const },
+        { key: 'revenue', header: 'Income (AED)', align: 'right' as const },
         { key: 'fuelCost', header: 'Fuel (AED)', align: 'right' as const },
         { key: 'tollCost', header: 'Toll (AED)', align: 'right' as const },
         { key: 'fineCost', header: 'Fine (AED)', align: 'right' as const },
         { key: 'maintenanceCost', header: 'Maint. (AED)', align: 'right' as const },
-        { key: 'totalDirectCosts', header: 'Direct Costs', align: 'right' as const },
-        { key: 'directTripProfit', header: 'Direct Profit', align: 'right' as const },
-        { key: 'marginStr', header: 'Margin %', align: 'center' as const },
+        { key: 'totalDirectCosts', header: 'Trip Costs', align: 'right' as const },
+        { key: 'directTripProfit', header: 'Trip Profit', align: 'right' as const },
+        { key: 'marginStr', header: 'Profit Margin', align: 'center' as const },
         { key: 'status', header: 'Status', align: 'center' as const },
       ];
 
@@ -112,7 +112,7 @@ export const ReportsPage: React.FC = () => {
       const avgMargin = totalRev > 0 ? ((totalProfit / totalRev) * 100).toFixed(1) : '0.0';
 
       window.electronAPI.openReportPdfPreview({
-        title: 'Per-Trip Direct Profitability & Cost Breakdown',
+        title: 'Trip Profit & Cost Breakdown Report',
         description: filterDesc,
         columns,
         data: tripProfitabilityData.map((t) => ({
@@ -121,10 +121,10 @@ export const ReportsPage: React.FC = () => {
           status: t.status === 'CANCELLED' ? 'Cancelled' : 'Completed',
         })),
         kpis: [
-          { label: 'Active Trips Revenue', value: `AED ${totalRev.toLocaleString()}` },
-          { label: 'Total Direct Trip Costs', value: `AED ${totalCosts.toLocaleString()}` },
-          { label: 'Total Direct Profit', value: `AED ${totalProfit.toLocaleString()}` },
-          { label: 'Overall Contribution Margin', value: `${avgMargin}%` },
+          { label: 'Total Trips Income', value: `AED ${totalRev.toLocaleString()}` },
+          { label: 'Total Trip Expenses', value: `AED ${totalCosts.toLocaleString()}` },
+          { label: 'Total Trip Profit', value: `AED ${totalProfit.toLocaleString()}` },
+          { label: 'Average Profit Margin', value: `${avgMargin}%` },
         ],
         orientation: 'landscape',
       });
@@ -136,13 +136,13 @@ export const ReportsPage: React.FC = () => {
         { key: 'toLocationName', header: 'To' },
         { key: 'vehicleRegistration', header: 'Vehicle' },
         { key: 'driverName', header: 'Driver' },
-        { key: 'totalAmount', header: 'Revenue (AED)', align: 'right' as const },
+        { key: 'totalAmount', header: 'Income (AED)', align: 'right' as const },
         { key: 'status', header: 'Status', align: 'center' as const },
       ];
       const totalRev = transactionsData.reduce((acc, t) => acc + (t.status !== 'CANCELLED' ? t.totalAmount : 0), 0);
 
       window.electronAPI.openReportPdfPreview({
-        title: 'Transaction Audit Report',
+        title: 'Trip & Invoice History Report',
         description: filterDesc,
         columns,
         data: transactionsData.map((t) => ({
@@ -150,8 +150,8 @@ export const ReportsPage: React.FC = () => {
           status: t.status === 'CANCELLED' ? 'Cancelled' : 'Completed',
         })),
         kpis: [
-          { label: 'Total Transactions Revenue', value: `AED ${totalRev.toLocaleString()}` },
-          { label: 'Total Transactions Count', value: `${transactionsData.length}` },
+          { label: 'Total Trips Income', value: `AED ${totalRev.toLocaleString()}` },
+          { label: 'Total Trips Count', value: `${transactionsData.length}` },
         ],
         orientation: 'landscape',
       });
@@ -160,14 +160,14 @@ export const ReportsPage: React.FC = () => {
         { key: 'driverName', header: 'Driver Name' },
         { key: 'phone', header: 'Contact' },
         { key: 'cnicOrLicense', header: 'License / CNIC' },
-        { key: 'basicSalary', header: 'Base Pay (AED)', align: 'right' as const },
+        { key: 'basicSalary', header: 'Monthly Base Salary (AED)', align: 'right' as const },
         { key: 'totalTrips', header: 'Completed Trips', align: 'center' as const },
         { key: 'latestTransactionDate', header: 'Last Trip Date', align: 'center' as const },
       ];
       const totalTrips = driversData.reduce((acc, d) => acc + d.totalTrips, 0);
 
       window.electronAPI.openReportPdfPreview({
-        title: 'Driver Operations & Trip Performance',
+        title: 'Driver Trips & Salary Report',
         description: filterDesc,
         columns,
         data: driversData,
@@ -181,21 +181,21 @@ export const ReportsPage: React.FC = () => {
       const columns = [
         { key: 'registrationNumber', header: 'Vehicle Plate' },
         { key: 'vehicleType', header: 'Type' },
-        { key: 'totalTrips', header: 'Trips', align: 'center' as const },
+        { key: 'totalTrips', header: 'Trips Count', align: 'center' as const },
         { key: 'fuelCost', header: 'Fuel (AED)', align: 'right' as const },
-        { key: 'maintenanceCost', header: 'Maintenance (AED)', align: 'right' as const },
+        { key: 'maintenanceCost', header: 'Repairs & Maint. (AED)', align: 'right' as const },
         { key: 'otherExpenses', header: 'Other Exp (AED)', align: 'right' as const },
-        { key: 'totalVehicleExpense', header: 'Total Overhead (AED)', align: 'right' as const },
+        { key: 'totalVehicleExpense', header: 'Total Expenses (AED)', align: 'right' as const },
       ];
       const totalExpense = vehicleExpensesData.reduce((acc, v) => acc + v.totalVehicleExpense, 0);
 
       window.electronAPI.openReportPdfPreview({
-        title: 'Vehicle Expense Ledger Report',
+        title: 'Vehicle & Fleet Expenses Report',
         description: filterDesc,
         columns,
         data: vehicleExpensesData,
         kpis: [
-          { label: 'Total Fleet Operating Costs', value: `AED ${totalExpense.toLocaleString()}` },
+          { label: 'Total Fleet Expenses', value: `AED ${totalExpense.toLocaleString()}` },
           { label: 'Active Fleet Count', value: `${vehicleExpensesData.length} Units` },
         ],
         orientation: 'landscape',
@@ -211,7 +211,7 @@ export const ReportsPage: React.FC = () => {
     let filename = 'report.csv';
 
     if (activeTab === 'TRIP_PROFITABILITY') {
-      filename = `Trip_Profitability_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+      filename = `Trip_Profit_Report_${new Date().toISOString().slice(0, 10)}.csv`;
       headers = [
         'Invoice #',
         'Date',
@@ -219,15 +219,15 @@ export const ReportsPage: React.FC = () => {
         'Driver Name',
         'Route',
         'Status',
-        'Gross Revenue (AED)',
+        'Trip Income (AED)',
         'Fuel Cost (AED)',
         'Toll Cost (AED)',
         'Fine Cost (AED)',
         'Maintenance Cost (AED)',
         'Other Cost (AED)',
-        'Total Direct Costs (AED)',
-        'Direct Trip Profit (AED)',
-        'Contribution Margin %',
+        'Total Trip Costs (AED)',
+        'Trip Profit (AED)',
+        'Profit Margin %',
       ];
       rows = tripProfitabilityData.map((t) => [
         t.transportNo,
@@ -247,7 +247,7 @@ export const ReportsPage: React.FC = () => {
         `${t.contributionMarginPercentage}%`,
       ]);
     } else if (activeTab === 'TRANSACTIONS') {
-      filename = `Transaction_Audit_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+      filename = `Trips_Invoices_Report_${new Date().toISOString().slice(0, 10)}.csv`;
       headers = [
         'Invoice #',
         'Date',
@@ -343,7 +343,7 @@ export const ReportsPage: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // 1. Column Definitions: Trip Profitability Report
+  // 1. Column Definitions: Trip Profit & Cost Report
   const tripProfitabilityColumns: Column<TripProfitabilityItem>[] = [
     {
       key: 'date',
@@ -372,7 +372,7 @@ export const ReportsPage: React.FC = () => {
     },
     {
       key: 'revenue',
-      header: 'Gross Revenue',
+      header: 'Trip Income',
       align: 'right',
       className: 'font-mono font-extrabold text-emerald-600',
       render: (t) => `AED ${t.revenue.toLocaleString()}`,
@@ -407,14 +407,14 @@ export const ReportsPage: React.FC = () => {
     },
     {
       key: 'totalDirectCosts',
-      header: 'Direct Costs',
+      header: 'Trip Costs',
       align: 'right',
       className: 'font-mono font-bold text-rose-600',
       render: (t) => `AED ${t.totalDirectCosts.toLocaleString()}`,
     },
     {
       key: 'directTripProfit',
-      header: 'Direct Profit',
+      header: 'Trip Profit',
       align: 'right',
       className: 'font-mono font-extrabold',
       render: (t) => (
@@ -425,7 +425,7 @@ export const ReportsPage: React.FC = () => {
     },
     {
       key: 'contributionMarginPercentage',
-      header: 'Margin %',
+      header: 'Profit Margin',
       align: 'center',
       render: (t) => (
         <span
@@ -509,7 +509,7 @@ export const ReportsPage: React.FC = () => {
     },
     {
       key: 'totalAmount',
-      header: 'Revenue (AED)',
+      header: 'Trip Income (AED)',
       align: 'right',
       className: 'font-mono font-extrabold text-emerald-600',
       render: (t) => t.totalAmount.toLocaleString(),
@@ -553,7 +553,7 @@ export const ReportsPage: React.FC = () => {
     },
     {
       key: 'basicSalary',
-      header: 'Base Salary (AED)',
+      header: 'Monthly Base Salary (AED)',
       align: 'right',
       className: 'font-mono text-slate-700',
       render: (d) => d.basicSalary.toLocaleString(),
@@ -601,7 +601,7 @@ export const ReportsPage: React.FC = () => {
     },
     {
       key: 'maintenanceCost',
-      header: 'Maintenance',
+      header: 'Repairs & Maint.',
       align: 'right',
       className: 'font-mono text-rose-600',
       render: (v) => v.maintenanceCost.toLocaleString(),
@@ -615,7 +615,7 @@ export const ReportsPage: React.FC = () => {
     },
     {
       key: 'totalVehicleExpense',
-      header: 'Total Vehicle Cost (AED)',
+      header: 'Total Expenses (AED)',
       align: 'right',
       className: 'font-mono font-extrabold text-rose-700',
       render: (v) => v.totalVehicleExpense.toLocaleString(),
@@ -636,7 +636,7 @@ export const ReportsPage: React.FC = () => {
             }`}
           >
             <TrendingUp className="w-3.5 h-3.5 text-violet-600" />
-            <span>Trip Profitability Report</span>
+            <span>Trip Profit Report</span>
           </button>
 
           <button
@@ -648,7 +648,7 @@ export const ReportsPage: React.FC = () => {
             }`}
           >
             <FileText className="w-3.5 h-3.5 text-violet-600" />
-            <span>Transaction Reports</span>
+            <span>Trips & Invoices Report</span>
           </button>
 
           <button
@@ -660,7 +660,7 @@ export const ReportsPage: React.FC = () => {
             }`}
           >
             <Users className="w-3.5 h-3.5 text-violet-600" />
-            <span>Driver Reports (Linked Trips)</span>
+            <span>Driver Trips & Salary Report</span>
           </button>
 
           <button
@@ -672,7 +672,7 @@ export const ReportsPage: React.FC = () => {
             }`}
           >
             <Wrench className="w-3.5 h-3.5 text-violet-600" />
-            <span>Vehicle Expense Report</span>
+            <span>Vehicle Expenses Report</span>
           </button>
 
           <button
@@ -684,7 +684,7 @@ export const ReportsPage: React.FC = () => {
             }`}
           >
             <PieChart className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Profit & Loss Statement (P&L)</span>
+            <span>Income & Expense Summary</span>
           </button>
         </div>
 
@@ -698,7 +698,7 @@ export const ReportsPage: React.FC = () => {
       <div className="p-4 bg-white rounded-2xl border border-slate-200/80 flex flex-wrap items-center gap-4 text-xs print:hidden shadow-[0_8px_30px_rgb(0,0,0,0.03)]">
         <div className="flex items-center gap-2 text-slate-700 font-bold">
           <Filter className="w-4 h-4 text-violet-600" />
-          <span>Report Filter Timeframe:</span>
+          <span>Filter by Date Range:</span>
         </div>
 
         <div>
@@ -734,6 +734,7 @@ export const ReportsPage: React.FC = () => {
                 value={transportType}
                 onChange={(val) => setTransportType(val as any)}
                 size="sm"
+                variant="pill"
               />
             </div>
 
@@ -748,6 +749,7 @@ export const ReportsPage: React.FC = () => {
                 value={statusFilter}
                 onChange={(val) => setStatusFilter(val as any)}
                 size="sm"
+                variant="pill"
               />
             </div>
           </>
@@ -767,6 +769,7 @@ export const ReportsPage: React.FC = () => {
               value={vehicleId}
               onChange={setVehicleId}
               size="sm"
+              variant="pill"
             />
           </div>
         )}
@@ -785,6 +788,7 @@ export const ReportsPage: React.FC = () => {
               value={driverId}
               onChange={setDriverId}
               size="sm"
+              variant="pill"
             />
           </div>
         )}
@@ -797,10 +801,10 @@ export const ReportsPage: React.FC = () => {
             columns={tripProfitabilityColumns}
             data={tripProfitabilityData}
             keyExtractor={(t) => t.transportId}
-            title="Trip-Level Direct Profitability & Cost Breakdown"
+            title="Trip Profit & Cost Details"
             countBadge={tripProfitabilityData.length}
             rowClassName={(t) => (t.status === 'CANCELLED' ? 'opacity-60 bg-slate-50/80 line-through' : '')}
-            emptyMessage="No trip records found for the selected timeframe and filter criteria."
+            emptyMessage="No trip records found for the selected date range and filter criteria."
           />
         )}
 
@@ -809,10 +813,10 @@ export const ReportsPage: React.FC = () => {
             columns={transactionColumns}
             data={transactionsData}
             keyExtractor={(t) => t.id}
-            title="Transaction Audit Records"
+            title="Trips & Invoices History"
             countBadge={transactionsData.length}
             rowClassName={(t) => (t.status === 'CANCELLED' ? 'opacity-60 bg-slate-50/80 line-through' : '')}
-            emptyMessage="No transaction audit records found for the selected timeframe."
+            emptyMessage="No trips found for the selected date range."
           />
         )}
 
@@ -821,7 +825,7 @@ export const ReportsPage: React.FC = () => {
             columns={driverColumns}
             data={driversData}
             keyExtractor={(d) => d.driverId}
-            title="Driver Trip Performance & Generated Revenue"
+            title="Driver Trips & Earnings"
             countBadge={driversData.length}
             emptyMessage="No driver records found."
           />
@@ -832,7 +836,7 @@ export const ReportsPage: React.FC = () => {
             columns={vehicleExpenseColumns}
             data={vehicleExpensesData}
             keyExtractor={(v) => v.vehicleId}
-            title="Vehicle Expense Report (Linked with Transport Transactions)"
+            title="Vehicle & Fleet Expenses"
             countBadge={vehicleExpensesData.length}
             emptyMessage="No vehicle expense records found."
           />
@@ -840,12 +844,12 @@ export const ReportsPage: React.FC = () => {
 
         {activeTab === 'PNL' && pnlData && (
           <div className="space-y-6 pb-6">
-            {/* P&L Header KPI Cards */}
+            {/* Income & Expense Header Cards */}
             <div className="grid grid-cols-4 gap-4">
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Total Revenue
+                    Total Income
                   </span>
                   <div className="p-2 rounded-xl bg-emerald-100 text-emerald-600">
                     <DollarSign className="w-4 h-4" />
@@ -855,14 +859,14 @@ export const ReportsPage: React.FC = () => {
                   AED {pnlData.totalGrossRevenue.toLocaleString()}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  {pnlData.totalTripsCount} Completed Transports
+                  {pnlData.totalTripsCount} Completed Trips
                 </div>
               </div>
 
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Operating Costs
+                    Total Expenses
                   </span>
                   <div className="p-2 rounded-xl bg-rose-100 text-rose-600">
                     <Wrench className="w-4 h-4" />
@@ -871,13 +875,13 @@ export const ReportsPage: React.FC = () => {
                 <div className="text-xl font-black font-mono text-rose-600 mt-2">
                   AED {pnlData.totalOperatingCosts.toLocaleString()}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-1">Fuel, Repairs & Direct Overheads</div>
+                <div className="text-[11px] text-slate-400 mt-1">Fuel, Repairs, Salaries & Tolls</div>
               </div>
 
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Net Operating Profit
+                    Total Net Profit
                   </span>
                   <div className="p-2 rounded-xl bg-violet-100 text-violet-600">
                     <TrendingUp className="w-4 h-4" />
@@ -890,13 +894,13 @@ export const ReportsPage: React.FC = () => {
                 >
                   AED {pnlData.netProfit.toLocaleString()}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-1">Revenue - Operating Costs</div>
+                <div className="text-[11px] text-slate-400 mt-1">Total Income minus Total Expenses</div>
               </div>
 
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Profit Margin
+                    Profit Margin %
                   </span>
                   <div className="p-2 rounded-xl bg-indigo-100 text-indigo-600">
                     <PieChart className="w-4 h-4" />
@@ -909,60 +913,60 @@ export const ReportsPage: React.FC = () => {
                 >
                   {pnlData.profitMarginPercentage}%
                 </div>
-                <div className="text-[11px] text-slate-400 mt-1">Margin on Gross Revenue</div>
+                <div className="text-[11px] text-slate-400 mt-1">Profit percentage from total income</div>
               </div>
             </div>
 
-            {/* Income & Expense Breakdown Statement */}
+            {/* Income & Expense Breakdown Details */}
             <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
               <div className="p-4 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between">
                 <h3 className="font-extrabold text-sm text-slate-900">
-                  Income Statement Breakdown — {pnlData.periodLabel}
+                  Income & Expense Summary — {pnlData.periodLabel}
                 </h3>
               </div>
 
               <div className="divide-y divide-slate-100 text-xs">
-                {/* 1. Gross Revenue Section */}
+                {/* 1. Income Section */}
                 <div className="p-4 bg-emerald-50/30">
-                  <div className="font-bold text-emerald-900 mb-2">1. REVENUE STREAMS</div>
+                  <div className="font-bold text-emerald-900 mb-2">1. INCOME FROM TRIPS</div>
                   <div className="space-y-1.5 pl-4">
                     <div className="flex justify-between text-slate-700">
-                      <span>Fixed Price Trip Revenue</span>
+                      <span>Fixed Price Trips Income</span>
                       <span className="font-mono font-semibold">AED {pnlData.tripRevenue.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-slate-700">
-                      <span>Per-Ton Freight Revenue</span>
+                      <span>Weight-Based (Per Ton) Trips Income</span>
                       <span className="font-mono font-semibold">AED {pnlData.tonRevenue.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between font-bold text-emerald-700 pt-1 border-t border-emerald-200/60">
-                      <span>TOTAL GROSS REVENUE</span>
+                      <span>TOTAL INCOME</span>
                       <span className="font-mono">AED {pnlData.totalGrossRevenue.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* 2. Direct Operating Costs */}
+                {/* 2. Expenses Section */}
                 <div className="p-4 bg-rose-50/30">
-                  <div className="font-bold text-rose-900 mb-2">2. FLEET OPERATING EXPENSES</div>
+                  <div className="font-bold text-rose-900 mb-2">2. FLEET & TRIP EXPENSES</div>
                   <div className="space-y-1.5 pl-4">
                     <div className="flex justify-between text-slate-700">
-                      <span>Fuel & Diesel Records</span>
+                      <span>Fuel & Diesel Expenses</span>
                       <span className="font-mono font-semibold">AED {pnlData.fuelCost.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-slate-700">
-                      <span>Vehicle Maintenance & Workshop Repairs</span>
+                      <span>Vehicle Repairs & Workshop Services</span>
                       <span className="font-mono font-semibold">AED {pnlData.maintenanceCost.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-slate-700">
-                      <span>Auxiliary Vehicle Expenses (Salik, Fines, Tolls)</span>
+                      <span>Tolls (Salik), Fines & Other Charges</span>
                       <span className="font-mono font-semibold">AED {pnlData.otherExpenses.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-slate-700">
-                      <span>Driver Salaries & Payroll Commissions</span>
+                      <span>Driver Salaries & Trip Payments</span>
                       <span className="font-mono font-semibold">AED {(pnlData.driverSalaries || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between font-bold text-rose-700 pt-1 border-t border-rose-200/60">
-                      <span>TOTAL OPERATING COSTS</span>
+                      <span>TOTAL EXPENSES</span>
                       <span className="font-mono">AED {pnlData.totalOperatingCosts.toLocaleString()}</span>
                     </div>
                   </div>
@@ -972,8 +976,8 @@ export const ReportsPage: React.FC = () => {
                 <div className="p-4 bg-violet-50/50">
                   <div className="flex justify-between items-center">
                     <div>
-                      <div className="font-black text-slate-900 text-sm">NET OPERATING PROFIT / (LOSS)</div>
-                      <div className="text-[11px] text-slate-500">Gross Revenue minus Total Operating Costs</div>
+                      <div className="font-black text-slate-900 text-sm">TOTAL NET PROFIT</div>
+                      <div className="text-[11px] text-slate-500">Total Income minus Total Expenses</div>
                     </div>
                     <div
                       className={`text-lg font-black font-mono ${

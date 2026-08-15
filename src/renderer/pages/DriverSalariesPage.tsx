@@ -30,6 +30,9 @@ import {
   DollarSign,
   Calendar,
   Sliders,
+  Users,
+  CheckCircle2,
+  Zap,
 } from 'lucide-react';
 import { useKeyboardShortcuts } from '../context/KeyboardShortcutContext';
 import { SearchBox } from '../components/common/SearchBox';
@@ -1164,61 +1167,116 @@ export const DriverSalariesPage: React.FC = () => {
       <Modal
         isOpen={isDraftRateModalOpen}
         onClose={() => setIsDraftRateModalOpen(false)}
-        title={`⚡ Decide Month-End Trip Rate: ${formattedPeriodTitle}`}
+        title={`⚡ Set Trip Rate: ${formattedPeriodTitle}`}
         maxWidth="md"
       >
         <form onSubmit={handleApplyMonthTripRate} className="space-y-4 text-xs">
-          <div className="p-3.5 bg-violet-50 border border-violet-200 rounded-2xl space-y-1.5">
-            <span className="font-bold text-violet-950 text-xs block">
-              {formattedPeriodTitle} Activity Overview
-            </span>
-            <div className="flex justify-between font-mono text-slate-700">
-              <span className="font-sans text-slate-600">Active Drivers Worked:</span>
-              <span className="font-bold">{masterSummary?.workingDrivers || 0} Drivers</span>
+          {/* Activity Overview 2-Card Metric Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-500 font-medium block truncate">Active Drivers</span>
+                <span className="text-base font-black text-slate-900 font-mono">
+                  {masterSummary?.workingDrivers || 0}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between font-mono text-slate-700">
-              <span className="font-sans text-slate-600">Total Completed Transports:</span>
-              <span className="font-extrabold text-violet-800 text-sm">
-                {masterSummary?.completedTrips || 0} Trips
-              </span>
+
+            <div className="p-3.5 bg-violet-50/70 border border-violet-200/70 rounded-2xl flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-violet-500/20">
+                <Truck className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[11px] text-violet-700 font-medium block truncate">Completed Trips</span>
+                <span className="text-base font-black text-violet-950 font-mono">
+                  {masterSummary?.completedTrips || 0}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-800 mb-1.5">
-              Decided Rate per Trip for {formattedPeriodTitle} (AED)
-            </label>
+          {/* Rate Input Card with Quick Presets */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800">
+                Trip Rate for {formattedPeriodTitle} (AED)
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">Quick Presets:</span>
+            </div>
+
             <div className="relative">
               <input
                 type="number"
                 value={monthTripRate}
                 onChange={(e) => setMonthTripRate(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="e.g. 75"
-                className="h-11 w-full bg-white border border-slate-300 focus:border-violet-600 focus:ring-2 focus:ring-violet-500/20 rounded-2xl px-4 text-sm font-mono font-black text-slate-900 focus:outline-none transition shadow-2xs"
+                placeholder="0"
+                className="h-12 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl pl-4 pr-28 text-base font-mono font-black text-slate-900 focus:outline-none transition-all duration-200 shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 required
                 autoFocus
               />
-              <span className="absolute right-4 top-3 text-xs font-bold text-slate-400 font-mono">
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-extrabold text-violet-700 font-mono shadow-2xs pointer-events-none">
                 AED / Trip
+              </div>
+            </div>
+
+            {/* Quick Rate Preset Buttons */}
+            <div className="flex items-center gap-1.5 pt-0.5">
+              {[50, 60, 75, 80, 100].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setMonthTripRate(preset)}
+                  className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition-all duration-150 border ${
+                    monthTripRate === preset
+                      ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  AED {preset}
+                </button>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-slate-500 font-medium">
+              Applies to all draft drivers for this month. You can also customize individual driver rates after.
+            </p>
+          </div>
+
+          {/* Real-Time Total Calculated Earnings Banner */}
+          <div className="p-3.5 bg-gradient-to-r from-violet-50/80 via-indigo-50/60 to-purple-50/80 border border-violet-200/80 rounded-2xl flex items-center justify-between shadow-2xs">
+            <div>
+              <span className="text-xs font-extrabold text-slate-900 block">Total Calculated Trip Payout</span>
+              <span className="text-[11px] text-slate-500 font-medium font-mono">
+                {masterSummary?.completedTrips || 0} trips × AED {monthTripRate || 0}
               </span>
             </div>
-            <span className="text-[11px] text-slate-500 mt-1 block">
-              Applies to all draft drivers for this month. You can also customize individual driver rates after.
-            </span>
+            <div className="text-right">
+              <span className="text-lg font-black font-mono text-emerald-600">
+                +AED {((masterSummary?.completedTrips || 0) * (Number(monthTripRate) || 0)).toLocaleString()}
+              </span>
+            </div>
           </div>
 
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 flex items-center justify-between font-mono">
-            <span className="font-sans text-[11px]">Estimated Trip Earnings ({masterSummary?.completedTrips || 0} trips):</span>
-            <span className="font-extrabold text-sky-800 text-sm">
-              +AED {((masterSummary?.completedTrips || 0) * (Number(monthTripRate) || 0)).toLocaleString()}
-            </span>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" size="sm" type="button" onClick={() => setIsDraftRateModalOpen(false)}>
+          {/* Modal Actions */}
+          <div className="flex justify-end gap-2.5 pt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              onClick={() => setIsDraftRateModalOpen(false)}
+            >
               Cancel
             </Button>
-            <Button variant="primary" size="sm" type="submit" isLoading={isGenerating}>
+            <Button
+              variant="primary"
+              size="sm"
+              type="submit"
+              isLoading={isGenerating}
+              icon={<Zap className="w-4 h-4" />}
+            >
               Apply Rate (AED {monthTripRate || 0} / Trip)
             </Button>
           </div>
@@ -1229,51 +1287,107 @@ export const DriverSalariesPage: React.FC = () => {
       <Modal
         isOpen={isDriverRateModalOpen}
         onClose={() => setIsDriverRateModalOpen(false)}
-        title={`Decide Trip Rate: ${selectedSalaryForRate?.driverName || ''} (${formattedPeriodTitle})`}
+        title={`⚡ Set Trip Rate: ${selectedSalaryForRate?.driverName || ''} (${formattedPeriodTitle})`}
         maxWidth="md"
       >
         <form onSubmit={handleSaveDriverRate} className="space-y-4 text-xs">
-          <div className="p-3.5 bg-sky-50 border border-sky-200 rounded-xl space-y-1 font-mono">
-            <span className="font-bold text-sky-950 block font-sans">
-              Driver Completed Transports
+          {/* Driver Context Info Card */}
+          <div className="p-3.5 bg-sky-50/70 border border-sky-200/70 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-sky-500/20">
+                <Truck className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-500 font-medium block">Completed in {formattedPeriodTitle}</span>
+                <span className="text-base font-black text-sky-950 font-mono">
+                  {selectedSalaryForRate?.totalTrips || 0} Trips
+                </span>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200 font-mono">
+              {selectedSalaryForRate?.driverName}
             </span>
-            <div className="flex justify-between">
-              <span className="font-sans text-slate-600">Total Completed in {formattedPeriodTitle}:</span>
-              <span className="font-black text-sky-800 text-sm">{selectedSalaryForRate?.totalTrips || 0} Trips</span>
+          </div>
+
+          {/* Rate Input Card with Quick Presets */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800">
+                Rate per Trip for {selectedSalaryForRate?.driverName} (AED)
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">Quick Presets:</span>
+            </div>
+
+            <div className="relative">
+              <input
+                type="number"
+                value={individualTripRate}
+                onChange={(e) => setIndividualTripRate(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="0"
+                className="h-12 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl pl-4 pr-28 text-base font-mono font-black text-slate-900 focus:outline-none transition-all duration-200 shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                required
+                autoFocus
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-extrabold text-violet-700 font-mono shadow-2xs pointer-events-none">
+                AED / Trip
+              </div>
+            </div>
+
+            {/* Quick Rate Preset Buttons */}
+            <div className="flex items-center gap-1.5 pt-0.5">
+              {[50, 60, 75, 85, 100].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setIndividualTripRate(preset)}
+                  className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition-all duration-150 border ${
+                    individualTripRate === preset
+                      ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  AED {preset}
+                </button>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-slate-500 font-medium">
+              This rate applies specifically to {selectedSalaryForRate?.driverName} for {formattedPeriodTitle}.
+            </p>
+          </div>
+
+          {/* Real-Time Total Calculated Earnings Banner */}
+          <div className="p-3.5 bg-gradient-to-r from-sky-50/80 via-indigo-50/60 to-violet-50/80 border border-sky-200/80 rounded-2xl flex items-center justify-between shadow-2xs">
+            <div>
+              <span className="text-xs font-extrabold text-slate-900 block">Calculated Driver Trip Payout</span>
+              <span className="text-[11px] text-slate-500 font-medium font-mono">
+                {selectedSalaryForRate?.totalTrips || 0} trips × AED {individualTripRate || 0}
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-lg font-black font-mono text-emerald-600">
+                +AED {((selectedSalaryForRate?.totalTrips || 0) * (Number(individualTripRate) || 0)).toLocaleString()}
+              </span>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-800 mb-1.5">
-              Decided Rate per Trip for {selectedSalaryForRate?.driverName} in {formattedPeriodTitle} (AED)
-            </label>
-            <input
-              type="number"
-              value={individualTripRate}
-              onChange={(e) => setIndividualTripRate(e.target.value === '' ? '' : Number(e.target.value))}
-              placeholder="e.g. 85"
-              className="h-11 w-full bg-white border border-slate-300 focus:border-violet-600 rounded-2xl px-4 text-sm font-mono font-black text-slate-900 focus:outline-none transition shadow-2xs"
-              required
-              autoFocus
-            />
-            <span className="text-[11px] text-slate-500 mt-1 block">
-              This rate applies specifically to {selectedSalaryForRate?.driverName} for {formattedPeriodTitle}.
-            </span>
-          </div>
-
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 flex items-center justify-between font-mono">
-            <span className="font-sans text-[11px]">Calculated Trip Earnings:</span>
-            <span className="font-extrabold text-sky-800 text-sm">
-              +AED {((selectedSalaryForRate?.totalTrips || 0) * (Number(individualTripRate) || 0)).toLocaleString()}
-            </span>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" size="sm" type="button" onClick={() => setIsDriverRateModalOpen(false)}>
+          {/* Modal Actions */}
+          <div className="flex justify-end gap-2.5 pt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              onClick={() => setIsDriverRateModalOpen(false)}
+            >
               Cancel
             </Button>
-            <Button variant="primary" size="sm" type="submit">
-              Apply Rate
+            <Button
+              variant="primary"
+              size="sm"
+              type="submit"
+              icon={<CheckCircle2 className="w-4 h-4" />}
+            >
+              Save Driver Rate
             </Button>
           </div>
         </form>

@@ -33,9 +33,17 @@ export function buildBaseA4HtmlDocument(
       print-color-adjust: exact !important;
       color-adjust: exact !important;
     }
+
+    /* Standard W3C CSS Paged Media definition for Chromium Print Engine */
+    @page {
+      size: ${isLandscape ? 'landscape' : 'portrait'};
+      size: ${isLandscape ? '297mm 210mm' : '210mm 297mm'};
+      margin: ${isLandscape ? '6mm 8mm' : '8mm 10mm'};
+    }
+
     body {
       font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #1e293b;
+      background-color: #0f172a;
       color: #000000;
       margin: 0;
       padding: 0;
@@ -110,10 +118,10 @@ export function buildBaseA4HtmlDocument(
 
     /* Screen Canvas Document Wrapper */
     .document-wrapper {
-      padding: 24px 0;
+      padding: 28px 0;
       display: flex;
       justify-content: center;
-      background-color: #1e293b;
+      background-color: #0f172a;
     }
     .a4-page {
       width: ${isLandscape ? '297mm' : '210mm'};
@@ -324,14 +332,28 @@ export function buildBaseA4HtmlDocument(
         print-color-adjust: exact !important;
         color-adjust: exact !important;
       }
-      body { background-color: #ffffff !important; color: #000000 !important; }
+      html, body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
       .sticky-toolbar { display: none !important; }
-      .document-wrapper { padding: 0 !important; background: transparent !important; }
+      .document-wrapper {
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+        display: block !important;
+      }
       .a4-page {
         width: 100% !important;
+        max-width: 100% !important;
         min-height: auto !important;
         box-shadow: none !important;
-        padding: 0 0 12mm 0 !important;
+        border-radius: 0 !important;
+        padding: 0 0 10mm 0 !important;
         margin: 0 !important;
         position: relative !important;
       }
@@ -343,10 +365,6 @@ export function buildBaseA4HtmlDocument(
         background: #ffffff !important;
         padding-top: 4px !important;
         border-top: 1.5px solid #000000 !important;
-      }
-      @page {
-        size: A4 ${orientation};
-        margin: 5mm 6mm;
       }
     }
   </style>
@@ -573,79 +591,79 @@ export function buildPnlPdfHtml(pnl: {
   const driverSalariesCost = pnl.driverSalaries !== undefined ? pnl.driverSalaries : (pnl.driverCommissionsCost || 0);
 
   const bodyHtml = `
-    <h1 class="report-title">Profit & Loss Income Statement (P&L)</h1>
-    <p class="subtitle">Timeframe Period: <strong>${pnl.periodLabel}</strong> &nbsp;|&nbsp; Total Completed Transport Trips: <strong>${pnl.totalTripsCount}</strong></p>
+    <h1 class="report-title">Income & Expense Summary Report</h1>
+    <p class="subtitle">Date Range: <strong>${pnl.periodLabel}</strong> &nbsp;|&nbsp; Total Completed Trips: <strong>${pnl.totalTripsCount}</strong></p>
 
     <div class="kpi-grid">
       <div class="kpi-box">
-        <div class="kpi-label">Gross Revenue</div>
+        <div class="kpi-label">Total Income</div>
         <div class="kpi-val">AED ${pnl.totalGrossRevenue.toLocaleString()}</div>
       </div>
       <div class="kpi-box">
-        <div class="kpi-label">Total Operating Costs</div>
+        <div class="kpi-label">Total Expenses</div>
         <div class="kpi-val">AED ${pnl.totalOperatingCosts.toLocaleString()}</div>
       </div>
       <div class="kpi-box">
-        <div class="kpi-label">Net ${isProfitable ? 'Profit' : 'Loss'}</div>
+        <div class="kpi-label">Total Net ${isProfitable ? 'Profit' : 'Loss'}</div>
         <div class="kpi-val font-extrabold">AED ${pnl.netProfit.toLocaleString()}</div>
       </div>
       <div class="kpi-box">
-        <div class="kpi-label">Profit Margin Ratio</div>
+        <div class="kpi-label">Profit Margin %</div>
         <div class="kpi-val">${pnl.profitMarginPercentage}%</div>
       </div>
     </div>
 
-    <h2 style="font-size: 10px; font-weight: 800; color: #000000 !important; margin-top: 14px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">1. Operational Income & Revenue Streams</h2>
+    <h2 style="font-size: 10px; font-weight: 800; color: #000000 !important; margin-top: 14px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">1. Income from Trips</h2>
     <table class="data-table">
       <thead>
         <tr>
-          <th>Revenue Account Category</th>
+          <th>Income Category</th>
           <th class="text-right">Amount (AED)</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>Fixed Price Transport Trips Revenue</td>
+          <td>Fixed Price Trips Income</td>
           <td class="text-right font-mono font-bold">AED ${pnl.tripRevenue.toLocaleString()}</td>
         </tr>
         <tr>
-          <td>Ton Rate Transport Trips Revenue</td>
+          <td>Weight-Based (Per Ton) Trips Income</td>
           <td class="text-right font-mono font-bold">AED ${pnl.tonRevenue.toLocaleString()}</td>
         </tr>
         <tr style="background: #f1f5f9 !important; font-weight: bold; border-top: 1.5px solid #000000 !important;">
-          <td style="font-weight: 900; color: #000000 !important">TOTAL GROSS REVENUE</td>
+          <td style="font-weight: 900; color: #000000 !important">TOTAL INCOME</td>
           <td class="text-right font-mono font-extrabold" style="font-size: 9.5px">AED ${pnl.totalGrossRevenue.toLocaleString()}</td>
         </tr>
       </tbody>
     </table>
 
-    <h2 style="font-size: 10px; font-weight: 800; color: #000000 !important; margin-top: 14px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">2. Direct Fleet Operating Costs & Expenses</h2>
+    <h2 style="font-size: 10px; font-weight: 800; color: #000000 !important; margin-top: 14px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">2. Fleet & Trip Expenses</h2>
     <table class="data-table">
       <thead>
         <tr>
-          <th>Expense Account Category</th>
+          <th>Expense Category</th>
           <th class="text-right">Amount (AED)</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>Fleet Diesel Fuel Expenses</td>
+          <td>Fuel & Diesel Expenses</td>
           <td class="text-right font-mono">AED ${pnl.fuelCost.toLocaleString()}</td>
         </tr>
         <tr>
-          <td>Vehicle Maintenance, Service & Repairs</td>
+          <td>Vehicle Repairs & Workshop Services</td>
           <td class="text-right font-mono">AED ${pnl.maintenanceCost.toLocaleString()}</td>
         </tr>
         <tr>
-          <td>Auxiliary Vehicle Operational Expenses (Salik, Fines, Tolls)</td>
+          <td>Tolls (Salik), Fines & Other Charges</td>
           <td class="text-right font-mono">AED ${pnl.otherExpenses.toLocaleString()}</td>
         </tr>
         <tr>
-          <td>Driver Salaries & Payroll Commissions</td>
+          <td>Driver Salaries & Trip Payments</td>
           <td class="text-right font-mono">AED ${driverSalariesCost.toLocaleString()}</td>
         </tr>
         <tr style="background: #f1f5f9 !important; font-weight: bold; border-top: 1.5px solid #000000 !important;">
-          <td style="font-weight: 900; color: #000000 !important">TOTAL OPERATING EXPENSES</td>
+          <td style="font-weight: 900; color: #000000 !important">TOTAL EXPENSES</td>
           <td class="text-right font-mono font-extrabold" style="font-size: 9.5px">AED ${pnl.totalOperatingCosts.toLocaleString()}</td>
         </tr>
       </tbody>
@@ -653,12 +671,12 @@ export function buildPnlPdfHtml(pnl: {
 
     <div style="margin-top: 14px; padding: 10px 14px; background: #ffffff !important; border: 2px solid #000000 !important; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <span style="font-size: 11px; font-weight: 900; color: #000000 !important; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Net Operating ${isProfitable ? 'Profit' : 'Loss'}</span>
-        <span style="font-size: 8.5px; color: #475569 !important; font-weight: 600;">Net operational result after all expenses & driver payroll</span>
+        <span style="font-size: 11px; font-weight: 900; color: #000000 !important; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Total Net ${isProfitable ? 'Profit' : 'Loss'}</span>
+        <span style="font-size: 8.5px; color: #475569 !important; font-weight: 600;">Total Income minus Total Expenses</span>
       </div>
       <span style="font-size: 16px; font-weight: 900; font-family: 'JetBrains Mono', ui-monospace, monospace; color: #000000 !important;">AED ${pnl.netProfit.toLocaleString()}</span>
     </div>
   `;
 
-  return buildBaseA4HtmlDocument(`Profit & Loss Statement - ${pnl.periodLabel}`, bodyHtml, 'portrait');
+  return buildBaseA4HtmlDocument(`Income & Expense Summary - ${pnl.periodLabel}`, bodyHtml, 'portrait');
 }

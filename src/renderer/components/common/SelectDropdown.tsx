@@ -54,13 +54,15 @@ export const SelectDropdown: React.FC<SelectDropdownProps> = ({
     if (direction === 'down') return false;
     if (dropdownRef.current) {
       const rect = dropdownRef.current.getBoundingClientRect();
-      const modalEl = dropdownRef.current.closest('[role="dialog"], .modal-card') || document.body;
-      const modalRect = modalEl.getBoundingClientRect();
-      
-      const spaceBelowInModal = modalRect.bottom - rect.bottom;
+      const containerEl =
+        dropdownRef.current.closest('[role="dialog"], .modal-card, .smooth-scroll, table, tbody') ||
+        document.body;
+      const containerRect = containerEl.getBoundingClientRect();
+
+      const spaceBelowInContainer = containerRect.bottom - rect.bottom;
       const spaceBelowInViewport = window.innerHeight - rect.bottom;
-      const availableSpaceBelow = Math.min(spaceBelowInModal, spaceBelowInViewport);
-      
+      const availableSpaceBelow = Math.min(spaceBelowInContainer, spaceBelowInViewport);
+
       return availableSpaceBelow < 240;
     }
     return false;
@@ -103,7 +105,9 @@ export const SelectDropdown: React.FC<SelectDropdownProps> = ({
   const isPill = variant === 'pill';
 
   const baseStyle = isPill
-    ? 'h-11 px-5 rounded-full bg-white hover:bg-slate-50 border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] text-xs font-semibold text-slate-900'
+    ? size === 'sm'
+      ? 'h-9 px-3.5 rounded-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent text-xs font-semibold text-slate-900 shadow-2xs'
+      : 'h-11 px-5 rounded-full bg-white hover:bg-slate-50 border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] text-xs font-semibold text-slate-900'
     : size === 'sm'
     ? 'h-9 px-3.5 rounded-xl bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent text-xs font-semibold text-slate-900 shadow-sm'
     : 'h-11 px-4 rounded-2xl bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent text-xs font-semibold text-slate-900 shadow-sm';

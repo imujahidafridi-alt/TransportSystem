@@ -30,6 +30,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('drivers:get-all', (_, search?: string) => driverService.getAllDrivers(search));
   ipcMain.handle('drivers:create', (_, data) => driverService.createDriver(data));
   ipcMain.handle('drivers:update', (_, { id, data }) => driverService.updateDriver(id, data));
+  ipcMain.handle('drivers:delete', (_, id: string) => driverService.deleteDriver(id));
 
   // Vehicles
   ipcMain.handle('vehicles:get-all', (_, search?: string) => vehicleService.getAllVehicles(search));

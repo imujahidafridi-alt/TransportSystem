@@ -10,6 +10,7 @@ const api = {
   getDrivers: (search?: string) => ipcRenderer.invoke('drivers:get-all', search),
   createDriver: (data: any) => ipcRenderer.invoke('drivers:create', data),
   updateDriver: (id: string, data: any) => ipcRenderer.invoke('drivers:update', { id, data }),
+  deleteDriver: (id: string) => ipcRenderer.invoke('drivers:delete', id),
 
   // Vehicles
   getVehicles: (search?: string) => ipcRenderer.invoke('vehicles:get-all', search),
