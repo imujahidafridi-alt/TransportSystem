@@ -9,6 +9,7 @@
     "build:renderer": "tsc -b && vite build",
     "build:main": "tsc --project tsconfig.main.json",
     "build": "npm run build:renderer && npm run build:main",
+    "build:exe": "npm run build && electron-builder --win",
     "dist:win": "npm run build && electron-builder --win",
     "watch:main": "tsc --project tsconfig.main.json -w",
     "start": "electron .",
@@ -20,6 +21,9 @@
     "directories": {
       "output": "release"
     },
+    "asarUnpack": [
+      "**/*.node"
+    ],
     "files": [
       "dist/**/*",
       "package.json"

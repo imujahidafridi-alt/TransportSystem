@@ -209,9 +209,11 @@ export const ExpensesPage: React.FC = () => {
 
   // Month & Category Filtered Records
   const monthFilteredExpenses = useMemo(() => {
+    // When a search term is active, search across all records so users never miss a record from another month
+    if (search.trim()) return expenses;
     if (isAllTime || !selectedMonth) return expenses;
     return expenses.filter((e) => e.date && e.date.startsWith(selectedMonth));
-  }, [expenses, selectedMonth, isAllTime]);
+  }, [expenses, selectedMonth, isAllTime, search]);
 
   const filteredExpenses = useMemo(() => {
     return monthFilteredExpenses.filter((e) => {
@@ -220,14 +222,18 @@ export const ExpensesPage: React.FC = () => {
       if (costFilter === 'OVERHEAD' && (e.transportId || e.expenseType === 'Driver Payroll')) return false;
       if (costFilter === 'PAYROLL' && e.expenseType !== 'Driver Payroll') return false;
 
-      if (!search) return true;
-      const q = search.toLowerCase();
+      if (!search.trim()) return true;
+      const q = search.toLowerCase().trim();
       return (
         e.vehicleRegistration?.toLowerCase().includes(q) ||
-        e.expenseType.toLowerCase().includes(q) ||
+        e.expenseType?.toLowerCase().includes(q) ||
         e.description?.toLowerCase().includes(q) ||
         e.vendor?.toLowerCase().includes(q) ||
-        e.transportNo?.toLowerCase().includes(q)
+        e.transportNo?.toLowerCase().includes(q) ||
+        e.notes?.toLowerCase().includes(q) ||
+        e.reference?.toLowerCase().includes(q) ||
+        e.amount?.toString().includes(q) ||
+        e.date?.toLowerCase().includes(q)
       );
     });
   }, [monthFilteredExpenses, costFilter, search]);
@@ -694,9 +700,13 @@ export const ExpensesPage: React.FC = () => {
         columns={columns}
         data={filteredExpenses}
         keyExtractor={(e) => e.id}
-        title={`Fleet Expenses Ledger — ${formattedPeriodTitle}`}
+        title={search.trim() ? `Expenses Search Results for "${search}"` : `Fleet Expenses Ledger — ${formattedPeriodTitle}`}
         countBadge={filteredExpenses.length}
-        emptyMessage={`No vehicle expenses or maintenance records logged for ${formattedPeriodTitle}.`}
+        emptyMessage={
+          search.trim()
+            ? `No expense records found matching "${search}".`
+            : `No vehicle expenses or maintenance records logged for ${formattedPeriodTitle}.`
+        }
       />
 
       {/* 5. Record Expense Modal */}

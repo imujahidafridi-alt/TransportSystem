@@ -91,15 +91,19 @@ export const FuelPage: React.FC = () => {
 
   const loadData = async () => {
     if (window.electronAPI) {
-      const [fRes, vRes, tRes] = await Promise.all([
-        window.electronAPI.getFuelRecords(),
-        window.electronAPI.getVehicles(),
-        window.electronAPI.getTransports(),
-      ]);
-      setFuelRecords(fRes);
-      setVehicles(vRes);
-      setTransports(tRes);
-      if (!vehicleId && vRes.length > 0) setVehicleId(vRes[0].id);
+      try {
+        const [fRes, vRes, tRes] = await Promise.all([
+          window.electronAPI.getFuelRecords(),
+          window.electronAPI.getVehicles(),
+          window.electronAPI.getTransports({ limit: 100 }),
+        ]);
+        setFuelRecords(Array.isArray(fRes) ? fRes : []);
+        setVehicles(Array.isArray(vRes) ? vRes : []);
+        setTransports(tRes?.items ? tRes.items : Array.isArray(tRes) ? tRes : []);
+        if (!vehicleId && vRes?.length > 0) setVehicleId(vRes[0].id);
+      } catch (err) {
+        console.error('Failed to load fuel records:', err);
+      }
     }
   };
 
@@ -153,23 +157,30 @@ export const FuelPage: React.FC = () => {
 
   // Month Filtered Records
   const monthFilteredRecords = useMemo(() => {
+    // When a search term is active, search across all fuel records so users never miss a record
+    if (search.trim()) return fuelRecords;
     if (isAllTime || !selectedMonth) return fuelRecords;
     return fuelRecords.filter((f) => f.date && f.date.startsWith(selectedMonth));
-  }, [fuelRecords, selectedMonth, isAllTime]);
+  }, [fuelRecords, selectedMonth, isAllTime, search]);
 
   const filteredRecords = useMemo(() => {
     return monthFilteredRecords.filter((f) => {
       if (costFilter === 'DIRECT_TRIP' && !f.transportId) return false;
       if (costFilter === 'OVERHEAD' && f.transportId) return false;
 
-      if (!search) return true;
-      const q = search.toLowerCase();
+      if (!search.trim()) return true;
+      const q = search.toLowerCase().trim();
       return (
         f.vehicleRegistration?.toLowerCase().includes(q) ||
-        f.fuelType.toLowerCase().includes(q) ||
+        f.fuelType?.toLowerCase().includes(q) ||
         f.vendor?.toLowerCase().includes(q) ||
         f.transportNo?.toLowerCase().includes(q) ||
-        f.odometer?.toString().includes(q)
+        f.odometer?.toString().includes(q) ||
+        f.quantity?.toString().includes(q) ||
+        f.rate?.toString().includes(q) ||
+        f.totalAmount?.toString().includes(q) ||
+        f.date?.toLowerCase().includes(q) ||
+        f.notes?.toLowerCase().includes(q)
       );
     });
   }, [monthFilteredRecords, costFilter, search]);
@@ -571,9 +582,13 @@ export const FuelPage: React.FC = () => {
         columns={columns}
         data={filteredRecords}
         keyExtractor={(f) => f.id}
-        title={`Fleet Fuel Consumption Ledger — ${formattedPeriodTitle}`}
+        title={search.trim() ? `Fuel Search Results for "${search}"` : `Fleet Fuel Consumption Ledger — ${formattedPeriodTitle}`}
         countBadge={filteredRecords.length}
-        emptyMessage={`No fuel logs recorded for ${formattedPeriodTitle}.`}
+        emptyMessage={
+          search.trim()
+            ? `No fuel records found matching "${search}".`
+            : `No fuel logs recorded for ${formattedPeriodTitle}.`
+        }
       />
 
       {/* 5. Log Fuel Filling Entry Modal */}
@@ -625,7 +640,7 @@ export const FuelPage: React.FC = () => {
                   label: 'None (Fleet General Overhead Fuel)',
                   icon: <Truck className="w-3.5 h-3.5 text-slate-400 shrink-0" />,
                 },
-                ...transports
+                ...(Array.isArray(transports) ? transports : [])
                   .filter((t) => !vehicleId || t.vehicleId === vehicleId)
                   .slice(0, 30)
                   .map((t) => ({
