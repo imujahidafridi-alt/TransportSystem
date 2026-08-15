@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Transport, TripCostSummary } from '@shared/types';
 import {
   X,
@@ -258,19 +259,19 @@ export const TripCostDrawer: React.FC<TripCostDrawerProps> = ({
 
   if (!isOpen || !transport) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 overflow-hidden flex justify-end select-none"
+      className="fixed inset-0 z-[999] overflow-hidden flex justify-end select-none animate-in fade-in duration-150"
       onKeyDown={handleKeyDown}
     >
-      {/* Clean Solid Backdrop (Zero GPU Memory Overhead) */}
+      {/* Full-Window Modern Backdrop covering Header + Sidebar + Main */}
       <div
-        className="fixed inset-0 bg-slate-900/25 transition-opacity duration-150"
+        className="fixed inset-0 bg-slate-900/35 backdrop-blur-[2px] transition-opacity duration-200"
         onClick={onClose}
       />
 
       {/* Sliding Sheet Panel */}
-      <aside className="relative w-full max-w-xl bg-[#F8FAFC] h-full shadow-xl z-10 flex flex-col overflow-hidden border-l border-slate-200/90">
+      <aside className="relative w-full max-w-xl bg-[#F8FAFC] h-full shadow-2xl z-10 flex flex-col overflow-hidden border-l border-slate-200/90 animate-in slide-in-from-right duration-200">
         
         {/* Modern Compact Header */}
         <div className="px-4 py-3 bg-white border-b border-slate-200/80 flex items-center justify-between shrink-0">
@@ -733,6 +734,7 @@ export const TripCostDrawer: React.FC<TripCostDrawerProps> = ({
           </div>
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body
   );
 };

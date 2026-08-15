@@ -1,17 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FuelRecord, Vehicle } from '@shared/types';
-import { Plus } from 'lucide-react';
+import { Plus, Link as LinkIcon, Truck } from 'lucide-react';
 import { useKeyboardShortcuts } from '../context/KeyboardShortcutContext';
 import { SearchBox } from '../components/common/SearchBox';
 import { DataTable, Column } from '../components/common/DataTable';
 import { SelectDropdown } from '../components/common/SelectDropdown';
 import { Button } from '../components/common/Button';
+import { ExportButton } from '../components/common/ExportButton';
+import { PrintButton } from '../components/common/PrintButton';
 import { Modal } from '../components/common/Modal';
 
 export const FuelPage: React.FC = () => {
   const [fuelRecords, setFuelRecords] = useState<FuelRecord[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [search, setSearch] = useState('');
+  const [costFilter, setCostFilter] = useState<'ALL' | 'DIRECT_TRIP' | 'OVERHEAD'>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -99,15 +102,81 @@ export const FuelPage: React.FC = () => {
   };
 
   const filteredRecords = fuelRecords.filter((f) => {
+    if (costFilter === 'DIRECT_TRIP' && !f.transportId) return false;
+    if (costFilter === 'OVERHEAD' && f.transportId) return false;
+
     if (!search) return true;
     const q = search.toLowerCase();
     return (
       f.vehicleRegistration?.toLowerCase().includes(q) ||
       f.fuelType.toLowerCase().includes(q) ||
       f.vendor?.toLowerCase().includes(q) ||
+      f.transportNo?.toLowerCase().includes(q) ||
       f.odometer?.toString().includes(q)
     );
   });
+
+  const directTripCount = fuelRecords.filter((f) => Boolean(f.transportId)).length;
+  const overheadCount = fuelRecords.filter((f) => !f.transportId).length;
+
+  const handleExportCSV = () => {
+    const headers = ['Date', 'Vehicle Reg', 'Invoice #', 'Fuel Type', 'Quantity (L)', 'Rate / L', 'Total Cost (AED)', 'Vendor', 'Odometer'];
+    const rows = filteredRecords.map((f) => [
+      f.date,
+      f.vehicleRegistration || '',
+      f.transportNo || '',
+      f.fuelType,
+      f.quantity,
+      f.rate,
+      f.totalAmount,
+      f.vendor || '',
+      f.odometer || '',
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.map((cell) => `"${cell}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Fuel_Records_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrintPDF = () => {
+    if (!window.electronAPI) return;
+    const columnsForPdf = [
+      { key: 'date', header: 'Date' },
+      { key: 'vehicleRegistration', header: 'Vehicle' },
+      { key: 'transportNoDisplay', header: 'Invoice #' },
+      { key: 'fuelType', header: 'Type' },
+      { key: 'qtyFormatted', header: 'Qty (L)', align: 'right' as const },
+      { key: 'rateFormatted', header: 'Rate (AED)', align: 'right' as const },
+      { key: 'totalFormatted', header: 'Total (AED)', align: 'right' as const },
+      { key: 'vendor', header: 'Station / Vendor' },
+      { key: 'odometerFormatted', header: 'Odometer', align: 'right' as const },
+    ];
+    const totalAmount = filteredRecords.reduce((acc, f) => acc + f.totalAmount, 0);
+    const totalLiters = filteredRecords.reduce((acc, f) => acc + f.quantity, 0);
+
+    window.electronAPI.openReportPdfPreview({
+      title: 'Fleet Diesel Fuel Consumption & Expenses Ledger',
+      description: `Showing ${filteredRecords.length} fuel fill records`,
+      columns: columnsForPdf,
+      data: filteredRecords.map((f) => ({
+        ...f,
+        transportNoDisplay: f.transportNo || '-',
+        qtyFormatted: `${f.quantity} L`,
+        rateFormatted: f.rate.toFixed(2),
+        totalFormatted: f.totalAmount.toLocaleString(),
+        odometerFormatted: f.odometer ? f.odometer.toLocaleString() : '-',
+      })),
+      kpis: [
+        { label: 'Total Diesel Cost', value: `AED ${totalAmount.toLocaleString()}` },
+        { label: 'Total Fuel Volume', value: `${totalLiters.toLocaleString()} Liters` },
+      ],
+      orientation: 'landscape',
+    });
+  };
 
   const columns: Column<FuelRecord>[] = [
     {
@@ -149,7 +218,17 @@ export const FuelPage: React.FC = () => {
       key: 'vendor',
       header: 'Station / Vendor',
       className: 'text-slate-700',
-      render: (f) => f.vendor || '-',
+      render: (f) => (
+        <div className="space-y-0.5">
+          <span className="block">{f.vendor || '-'}</span>
+          {f.transportNo && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">
+              <LinkIcon className="w-3 h-3" />
+              Invoice # {f.transportNo}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: 'classification',
@@ -157,13 +236,13 @@ export const FuelPage: React.FC = () => {
       align: 'center',
       render: (f) => (
         <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-2xs whitespace-nowrap ${
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold shadow-2xs whitespace-nowrap ${
             f.transportId
-              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+              ? 'bg-violet-100 text-violet-800 border border-violet-300'
               : 'bg-amber-50 text-amber-800 border border-amber-200'
           }`}
         >
-          {f.transportId ? 'TRIP COST' : 'VEHICLE COST'}
+          {f.transportId ? '🔗 DIRECT TRIP (COGS)' : 'FLEET OVERHEAD'}
         </span>
       ),
     },
@@ -179,21 +258,61 @@ export const FuelPage: React.FC = () => {
   return (
     <div className="p-6 space-y-4">
       {/* Top Bar */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <SearchBox
           ref={searchInputRef}
           value={search}
           onChange={setSearch}
-          placeholder="Search fuel log by vehicle reg, station or fuel type... (Ctrl+F)"
-          className="max-w-md"
+          placeholder="Search fuel log by vehicle reg, station, invoice # or fuel type... (Ctrl+F)"
+          className="max-w-md flex-1"
         />
 
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          icon={<Plus className="w-4 h-4" />}
+        <div className="flex items-center gap-2">
+          <ExportButton onClick={handleExportCSV} />
+          <PrintButton onClick={handlePrintPDF} />
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            icon={<Plus className="w-4 h-4" />}
+          >
+            Log Fuel Filling (Ctrl+N)
+          </Button>
+        </div>
+      </div>
+
+      {/* Enterprise Cost Classification Filter Capsules */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-full border border-slate-200/80 w-fit text-xs">
+        <button
+          onClick={() => setCostFilter('ALL')}
+          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 ${
+            costFilter === 'ALL'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/70'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
         >
-          Log Fuel Filling (Ctrl+N)
-        </Button>
+          All Fuel Logs ({fuelRecords.length})
+        </button>
+        <button
+          onClick={() => setCostFilter('DIRECT_TRIP')}
+          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
+            costFilter === 'DIRECT_TRIP'
+              ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/25'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <LinkIcon className="w-3.5 h-3.5" />
+          <span>Direct Trip Fuel (COGS) ({directTripCount})</span>
+        </button>
+        <button
+          onClick={() => setCostFilter('OVERHEAD')}
+          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
+            costFilter === 'OVERHEAD'
+              ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/25'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Truck className="w-3.5 h-3.5" />
+          <span>Fleet General Fuel ({overheadCount})</span>
+        </button>
       </div>
 
       <DataTable

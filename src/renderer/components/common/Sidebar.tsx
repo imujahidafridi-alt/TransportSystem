@@ -44,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
         isCollapsed ? 'w-16' : 'w-60'
       }`}
     >
-      {/* Top Header: Hamburger Toggle + "Menu" Label */}
+      {/* Top Header: Hamburger Toggle + TripLedger Branding */}
       <div className="h-14 px-2.5 border-b border-slate-100 flex items-center">
         <button
           onClick={() => setIsCollapsed((prev) => !prev)}
@@ -53,13 +53,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
         >
           <Menu className="w-5 h-5 text-slate-700" />
         </button>
-        <span
-          className={`font-extrabold text-slate-800 text-xs tracking-wide ml-2 whitespace-nowrap overflow-hidden transition-all duration-300 ease-out ${
+        <div
+          className={`flex flex-col ml-2.5 overflow-hidden transition-all duration-300 ease-out ${
             isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
           }`}
         >
-          Menu
-        </span>
+          <span className="font-black text-slate-900 text-sm tracking-tight leading-none">
+            TripLedger
+          </span>
+          <span className="text-[9px] font-bold text-violet-600 uppercase tracking-wider leading-none mt-1">
+            Transport & Fleet ERP
+          </span>
+        </div>
       </div>
 
       {/* Navigation Links */}
@@ -142,6 +147,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
             </div>
           )}
         </button>
+
+        {/* Product & Developer Attribution when expanded */}
+        {!isCollapsed && (
+          <div className="px-2 pt-2 pb-0.5 text-center text-[10px] text-slate-400 font-medium">
+            <p className="font-bold text-slate-600">TripLedger v1.0.0</p>
+            <p className="text-[9px] text-slate-400">A product of Afridi Labz</p>
+          </div>
+        )}
       </div>
     </aside>
   );

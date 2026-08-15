@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ReportFilter, Driver, Vehicle, TripProfitabilityItem } from '@shared/types';
 import {
-  Printer,
-  Download,
   Filter,
   TrendingUp,
   DollarSign,
@@ -19,7 +17,8 @@ import {
 } from 'src/main/services/reportService';
 import { DataTable, Column } from '../components/common/DataTable';
 import { SelectDropdown } from '../components/common/SelectDropdown';
-import { Button } from '../components/common/Button';
+import { ExportButton } from '../components/common/ExportButton';
+import { PrintButton } from '../components/common/PrintButton';
 
 type ActiveReportTab = 'TRANSACTIONS' | 'TRIP_PROFITABILITY' | 'DRIVERS' | 'VEHICLE_EXPENSES' | 'PNL';
 
@@ -91,7 +90,7 @@ export const ReportsPage: React.FC = () => {
     if (activeTab === 'TRIP_PROFITABILITY') {
       const columns = [
         { key: 'date', header: 'Date' },
-        { key: 'transportNo', header: 'Transport #' },
+        { key: 'transportNo', header: 'Invoice #' },
         { key: 'vehicleRegistration', header: 'Vehicle' },
         { key: 'driverName', header: 'Driver' },
         { key: 'route', header: 'Route' },
@@ -127,11 +126,12 @@ export const ReportsPage: React.FC = () => {
           { label: 'Total Direct Profit', value: `AED ${totalProfit.toLocaleString()}` },
           { label: 'Overall Contribution Margin', value: `${avgMargin}%` },
         ],
+        orientation: 'landscape',
       });
     } else if (activeTab === 'TRANSACTIONS') {
       const columns = [
         { key: 'date', header: 'Date' },
-        { key: 'transportNo', header: 'Transport #' },
+        { key: 'transportNo', header: 'Invoice #' },
         { key: 'fromLocationName', header: 'From' },
         { key: 'toLocationName', header: 'To' },
         { key: 'vehicleRegistration', header: 'Vehicle' },
@@ -153,6 +153,7 @@ export const ReportsPage: React.FC = () => {
           { label: 'Total Transactions Revenue', value: `AED ${totalRev.toLocaleString()}` },
           { label: 'Total Transactions Count', value: `${transactionsData.length}` },
         ],
+        orientation: 'landscape',
       });
     } else if (activeTab === 'DRIVERS') {
       const columns = [
@@ -174,6 +175,7 @@ export const ReportsPage: React.FC = () => {
           { label: 'Total Completed Trips', value: `${totalTrips}` },
           { label: 'Active Drivers Count', value: `${driversData.length}` },
         ],
+        orientation: 'landscape',
       });
     } else if (activeTab === 'VEHICLE_EXPENSES') {
       const columns = [
@@ -196,6 +198,7 @@ export const ReportsPage: React.FC = () => {
           { label: 'Total Fleet Operating Costs', value: `AED ${totalExpense.toLocaleString()}` },
           { label: 'Active Fleet Count', value: `${vehicleExpensesData.length} Units` },
         ],
+        orientation: 'landscape',
       });
     } else if (activeTab === 'PNL' && pnlData) {
       window.electronAPI.openPnlPdfPreview(pnlData);
@@ -210,7 +213,7 @@ export const ReportsPage: React.FC = () => {
     if (activeTab === 'TRIP_PROFITABILITY') {
       filename = `Trip_Profitability_Report_${new Date().toISOString().slice(0, 10)}.csv`;
       headers = [
-        'Transport #',
+        'Invoice #',
         'Date',
         'Vehicle Reg',
         'Driver Name',
@@ -246,7 +249,7 @@ export const ReportsPage: React.FC = () => {
     } else if (activeTab === 'TRANSACTIONS') {
       filename = `Transaction_Audit_Report_${new Date().toISOString().slice(0, 10)}.csv`;
       headers = [
-        'Transport #',
+        'Invoice #',
         'Date',
         'Type',
         'From Location',
@@ -349,7 +352,7 @@ export const ReportsPage: React.FC = () => {
     },
     {
       key: 'transportNo',
-      header: 'Transport #',
+      header: 'Invoice #',
       className: 'font-mono font-bold text-violet-700 whitespace-nowrap',
     },
     {
@@ -465,7 +468,7 @@ export const ReportsPage: React.FC = () => {
     },
     {
       key: 'transportNo',
-      header: 'Transport #',
+      header: 'Invoice #',
       className: 'font-mono font-bold text-violet-700',
     },
     {
@@ -622,86 +625,72 @@ export const ReportsPage: React.FC = () => {
   return (
     <div className="p-6 h-[calc(100vh-3.5rem)] flex flex-col space-y-4">
       {/* Navigation Tabs Bar */}
-      <div className="flex items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center gap-1.5 bg-slate-200/70 p-1 rounded-2xl border border-slate-300/40">
+      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-full border border-slate-200/80 shadow-2xs">
           <button
             onClick={() => setActiveTab('TRIP_PROFITABILITY')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
               activeTab === 'TRIP_PROFITABILITY'
-                ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/50'
+                ? 'bg-white text-violet-700 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <TrendingUp className="w-4 h-4" />
+            <TrendingUp className="w-3.5 h-3.5 text-violet-600" />
             <span>Trip Profitability Report</span>
           </button>
 
           <button
             onClick={() => setActiveTab('TRANSACTIONS')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
               activeTab === 'TRANSACTIONS'
-                ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/50'
+                ? 'bg-white text-violet-700 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <FileText className="w-4 h-4" />
+            <FileText className="w-3.5 h-3.5 text-violet-600" />
             <span>Transaction Reports</span>
           </button>
 
           <button
             onClick={() => setActiveTab('DRIVERS')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
               activeTab === 'DRIVERS'
-                ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/50'
+                ? 'bg-white text-violet-700 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-3.5 h-3.5 text-violet-600" />
             <span>Driver Reports (Linked Trips)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('VEHICLE_EXPENSES')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
               activeTab === 'VEHICLE_EXPENSES'
-                ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/50'
+                ? 'bg-white text-violet-700 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Wrench className="w-4 h-4" />
+            <Wrench className="w-3.5 h-3.5 text-violet-600" />
             <span>Vehicle Expense Report</span>
           </button>
 
           <button
             onClick={() => setActiveTab('PNL')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
               activeTab === 'PNL'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/50'
+                ? 'bg-white text-emerald-700 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <PieChart className="w-4 h-4" />
+            <PieChart className="w-3.5 h-3.5 text-emerald-600" />
             <span>Profit & Loss Statement (P&L)</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleExportCSV}
-            icon={<Download className="w-4 h-4" />}
-            size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20"
-          >
-            Export CSV
-          </Button>
-          <Button
-            onClick={handleOpenPdfPreview}
-            icon={<Printer className="w-4 h-4 text-white" />}
-            size="sm"
-            className="bg-violet-600 hover:bg-violet-700 text-white shadow-violet-500/20 font-bold"
-          >
-            Print A4 PDF Preview
-          </Button>
+        <div className="flex items-center gap-2.5">
+          <ExportButton onClick={handleExportCSV} />
+          <PrintButton onClick={handleOpenPdfPreview} />
         </div>
       </div>
 
@@ -718,7 +707,7 @@ export const ReportsPage: React.FC = () => {
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="bg-[#F0F2F9] border border-transparent rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:border-violet-600 transition"
+            className="bg-[#F0F2F9] border border-transparent rounded-full px-3.5 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:border-violet-600 focus:bg-white transition shadow-2xs"
           />
         </div>
 
@@ -728,7 +717,7 @@ export const ReportsPage: React.FC = () => {
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="bg-[#F0F2F9] border border-transparent rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:border-violet-600 transition"
+            className="bg-[#F0F2F9] border border-transparent rounded-full px-3.5 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:border-violet-600 focus:bg-white transition shadow-2xs"
           />
         </div>
 
@@ -967,6 +956,10 @@ export const ReportsPage: React.FC = () => {
                     <div className="flex justify-between text-slate-700">
                       <span>Auxiliary Vehicle Expenses (Salik, Fines, Tolls)</span>
                       <span className="font-mono font-semibold">AED {pnlData.otherExpenses.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-700">
+                      <span>Driver Salaries & Payroll Commissions</span>
+                      <span className="font-mono font-semibold">AED {(pnlData.driverSalaries || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between font-bold text-rose-700 pt-1 border-t border-rose-200/60">
                       <span>TOTAL OPERATING COSTS</span>

@@ -2,15 +2,21 @@ import { BrowserWindow, Menu } from 'electron';
 
 let pdfWindow: BrowserWindow | null = null;
 
-export function openPdfPreviewWindow(title: string, htmlContent: string): void {
+export function openPdfPreviewWindow(
+  title: string,
+  htmlContent: string,
+  orientation: 'portrait' | 'landscape' = 'portrait'
+): void {
   // If preview window exists, close previous window safely
   if (pdfWindow && !pdfWindow.isDestroyed()) {
     pdfWindow.close();
   }
 
+  const isLandscape = orientation === 'landscape';
+
   pdfWindow = new BrowserWindow({
-    width: 1020,
-    height: 900,
+    width: isLandscape ? 1340 : 1020,
+    height: isLandscape ? 880 : 920,
     minWidth: 800,
     minHeight: 600,
     title: title || 'PDF Print Preview',

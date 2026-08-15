@@ -75,12 +75,22 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('salaries:finalize', (_, { period, salaryRecordIds, finalizedBy }) =>
     salaryService.finalizePayrollForPeriod(period, salaryRecordIds, finalizedBy)
   );
+  ipcMain.handle('salaries:mark-paid', (_, payload) =>
+    salaryService.markSalariesPaid(payload)
+  );
   ipcMain.handle('salaries:get-by-id', (_, id: string) => salaryService.getSalaryById(id));
   ipcMain.handle('salaries:get-adjustments', (_, salaryRecordId: string) =>
     salaryService.getSalaryAdjustments(salaryRecordId)
   );
   ipcMain.handle('salaries:add-adjustment', (_, data) => salaryService.addSalaryAdjustment(data));
   ipcMain.handle('salaries:delete-adjustment', (_, id: string) => salaryService.deleteSalaryAdjustment(id));
+  ipcMain.handle('salaries:revert-status', (_, { id, targetStatus }) =>
+    salaryService.revertSalaryStatus(id, targetStatus)
+  );
+  ipcMain.handle('salaries:delete', (_, id: string) => salaryService.deleteSalaryRecord(id));
+  ipcMain.handle('salaries:reopen-period', (_, period: string) =>
+    salaryService.reopenPayrollPeriod(period)
+  );
   ipcMain.handle('salaries:master-summary', (_, period: string) =>
     salaryService.getMasterPayrollSummary(period)
   );
@@ -115,9 +125,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('sync:queue-status', () => syncQueue.getSyncQueueStatus());
 
   // PDF Preview & Printing Service
-  ipcMain.handle('pdf:open-report-preview', (_, { title, description, columns, data, kpis }) => {
-    const html = buildReportPdfHtml(title, description, columns, data, kpis);
-    openPdfPreviewWindow(title, html);
+  ipcMain.handle('pdf:open-report-preview', (_, { title, description, columns, data, kpis, orientation }) => {
+    const resolvedOrientation: 'portrait' | 'landscape' =
+      orientation || (columns && columns.length >= 6 ? 'landscape' : 'portrait');
+    const html = buildReportPdfHtml(title, description, columns, data, kpis, resolvedOrientation);
+    openPdfPreviewWindow(title, html, resolvedOrientation);
   });
 
   ipcMain.handle('pdf:open-driver-ledger-preview', (_, data) => {

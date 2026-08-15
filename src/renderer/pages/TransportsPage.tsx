@@ -4,6 +4,7 @@ import { ExcelTransportGrid } from '../components/transports/ExcelTransportGrid'
 import { TransportFormModal } from '../components/transports/TransportFormModal';
 import { TripCostDrawer } from '../components/transports/TripCostDrawer';
 import { SearchBox } from '../components/common/SearchBox';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 import { useKeyboardShortcuts } from '../context/KeyboardShortcutContext';
 
 export const TransportsPage: React.FC = () => {
@@ -66,12 +67,14 @@ export const TransportsPage: React.FC = () => {
     }
   };
 
-  const handleCancelTransport = async (id: string) => {
-    if (window.confirm('Are you sure you want to cancel this transport? Cancelled records are kept for audit trail.')) {
-      if (window.electronAPI) {
-        await window.electronAPI.cancelTransport(id);
-        loadData();
-      }
+  // Cancel Confirmation Modal State
+  const [cancelTransportId, setCancelTransportId] = useState<string | null>(null);
+
+  const handleConfirmCancel = async () => {
+    if (cancelTransportId && window.electronAPI) {
+      await window.electronAPI.cancelTransport(cancelTransportId);
+      setCancelTransportId(null);
+      loadData();
     }
   };
 
@@ -88,7 +91,7 @@ export const TransportsPage: React.FC = () => {
           id="transport-search-input"
           value={search}
           onChange={setSearch}
-          placeholder="Fast search transport #, registration, driver, or location... (Ctrl+F)"
+          placeholder="Fast search invoice #, registration, driver, or location... (Ctrl+F)"
           className="max-w-md"
         />
       </div>
@@ -108,10 +111,21 @@ export const TransportsPage: React.FC = () => {
             setEditingTransport(t);
             setIsModalOpen(true);
           }}
-          onCancel={handleCancelTransport}
+          onCancel={(id) => setCancelTransportId(id)}
           onOpenCosts={handleOpenCosts}
         />
       </div>
+
+      {/* Cancel Transport Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!cancelTransportId}
+        onClose={() => setCancelTransportId(null)}
+        onConfirm={handleConfirmCancel}
+        title="⚠️ Cancel Transport Record"
+        message="Are you sure you want to cancel this transport record? Cancelled records will be marked as cancelled in the ledger and kept for complete audit trail."
+        confirmText="Cancel Transport"
+        variant="danger"
+      />
 
       {/* Transport Form Modal */}
       <TransportFormModal

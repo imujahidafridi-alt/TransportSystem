@@ -213,7 +213,7 @@ export const BackupsPage: React.FC = () => {
             <span>Automated Off-Site Cloud Backup System</span>
           </h3>
           <p className="text-xs text-slate-300 font-normal leading-relaxed">
-            Your fleet management records are automatically encrypted and backed up off-site. Click below to create an immediate fresh cloud snapshot right now.
+            Your TripLedger records are automatically encrypted and backed up off-site. Click below to create an immediate fresh cloud snapshot right now.
           </p>
         </div>
 

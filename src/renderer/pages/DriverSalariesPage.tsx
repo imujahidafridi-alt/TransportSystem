@@ -13,9 +13,11 @@ import {
   Printer,
   Sparkles,
   Lock,
+  Unlock,
+  RotateCcw,
   CreditCard,
   AlertCircle,
-  Edit3,
+  Edit,
   Trash2,
   CheckSquare,
   Square,
@@ -26,6 +28,8 @@ import {
   Wallet,
   Calculator,
   DollarSign,
+  Calendar,
+  Sliders,
 } from 'lucide-react';
 import { useKeyboardShortcuts } from '../context/KeyboardShortcutContext';
 import { SearchBox } from '../components/common/SearchBox';
@@ -33,6 +37,8 @@ import { DataTable, Column } from '../components/common/DataTable';
 import { SelectDropdown } from '../components/common/SelectDropdown';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { ConfirmModal } from '../components/common/ConfirmModal';
+import { ActionDropdown } from '../components/common/ActionDropdown';
 
 export const DriverSalariesPage: React.FC = () => {
   const [salaries, setSalaries] = useState<DriverSalaryRecord[]>([]);
@@ -44,6 +50,23 @@ export const DriverSalariesPage: React.FC = () => {
   const [masterSummary, setMasterSummary] = useState<MasterPayrollSummary | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Custom UI Confirmation Modal State
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    variant: 'danger' | 'warning' | 'primary';
+    action: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    variant: 'danger',
+    action: async () => {},
+  });
+
   // Month-End Decided Rate per Trip State
   const [isDraftRateModalOpen, setIsDraftRateModalOpen] = useState(false);
   const [monthTripRate, setMonthTripRate] = useState<number | ''>(60);
@@ -52,6 +75,8 @@ export const DriverSalariesPage: React.FC = () => {
   const [isSingleModalOpen, setIsSingleModalOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [selectedSalaryForPay, setSelectedSalaryForPay] = useState<DriverSalaryRecord | null>(null);
+
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const [selectedSalaryForAdj, setSelectedSalaryForAdj] = useState<DriverSalaryRecord | null>(null);
 
@@ -61,6 +86,7 @@ export const DriverSalariesPage: React.FC = () => {
   const [individualTripRate, setIndividualTripRate] = useState<number | ''>(60);
 
   // Payment Form State
+  const [isPaying, setIsPaying] = useState(false);
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [paymentMethod, setPaymentMethod] = useState('Bank Transfer / WPS');
   const [paymentReference, setPaymentReference] = useState('');
@@ -83,6 +109,7 @@ export const DriverSalariesPage: React.FC = () => {
   const [paymentStatus] = useState<SalaryPaymentStatus>('DRAFT');
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const monthInputRef = useRef<HTMLInputElement>(null);
   const { registerAction } = useKeyboardShortcuts();
 
   useEffect(() => {
@@ -150,7 +177,6 @@ export const DriverSalariesPage: React.FC = () => {
   const fetchDriverPayrollDetails = async (selectedDriverId: string, period: string) => {
     if (!selectedDriverId || !window.electronAPI) return;
     try {
-      // 1. Check if a salary record already exists in current loaded salaries state
       const existing = salaries.find(
         (s) => s.driverId === selectedDriverId && s.salaryPeriod === period
       );
@@ -258,31 +284,115 @@ export const DriverSalariesPage: React.FC = () => {
     await loadData();
   };
 
-  // 4. Batch Mark as Paid
+  // 4. Individual & Batch Payment Handlers
+  const handleOpenIndividualPay = (s: DriverSalaryRecord) => {
+    setSelectedSalaryForPay(s);
+    setPaymentDate(new Date().toISOString().slice(0, 10));
+    setPaymentMethod('Bank Transfer / WPS');
+    setPaymentReference('');
+    setPaidBy('Admin');
+    setIsPayModalOpen(true);
+  };
+
+  const handleOpenBatchPay = () => {
+    setSelectedSalaryForPay(null);
+    setPaymentDate(new Date().toISOString().slice(0, 10));
+    setPaymentMethod('Bank Transfer / WPS');
+    setPaymentReference('');
+    setPaidBy('Admin');
+    setIsPayModalOpen(true);
+  };
+
   const handlePayConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!window.electronAPI) return;
-    const idsToPay =
-      selectedIds.length > 0
-        ? selectedIds
-        : filteredSalaries.filter((s) => s.paymentStatus !== 'PAID').map((s) => s.id);
+
+    let idsToPay: string[] = [];
+    if (selectedSalaryForPay) {
+      idsToPay = [selectedSalaryForPay.id];
+    } else if (selectedIds.length > 0) {
+      idsToPay = selectedIds;
+    } else {
+      idsToPay = filteredSalaries.filter((s) => s.paymentStatus !== 'PAID').map((s) => s.id);
+    }
 
     if (idsToPay.length === 0) return;
 
-    await window.electronAPI.markSalariesPaid({
-      salaryRecordIds: idsToPay,
-      paymentDate,
-      paymentMethod,
-      paymentReference: paymentReference.trim() || undefined,
-      paidBy,
-    });
+    setIsPaying(true);
+    try {
+      await window.electronAPI.markSalariesPaid({
+        salaryRecordIds: idsToPay,
+        paymentDate,
+        paymentMethod,
+        paymentReference: paymentReference.trim() || undefined,
+        paidBy,
+      });
 
-    setIsPayModalOpen(false);
-    setPaymentReference('');
-    await loadData();
+      setIsPayModalOpen(false);
+      setSelectedSalaryForPay(null);
+      setPaymentReference('');
+      await loadData();
+    } catch (err: any) {
+      console.error('Payment disbursement failed:', err);
+      alert(err?.message || 'Payment disbursement failed.');
+    } finally {
+      setIsPaying(false);
+    }
   };
 
-  // 5. Audited Adjustment Handlers
+  // 5. Revert Status (Unlock / Revert Payment) & Delete Handlers via Modal Component
+  const handleRevertStatus = (s: DriverSalaryRecord, targetStatus: 'DRAFT' | 'FINALIZED') => {
+    const isUnlock = targetStatus === 'DRAFT';
+    setConfirmConfig({
+      isOpen: true,
+      title: isUnlock ? '🔓 Unlock Payroll Record' : '↺ Revert Payment Status',
+      message: isUnlock
+        ? `Are you sure you want to unlock the payroll record for ${s.driverName}? This will return it to Draft and allow you to freely edit trip rates, transports, and adjustments.`
+        : `Are you sure you want to revert the payment for ${s.driverName}? This will reset the payment status to Draft so corrections can be made.`,
+      confirmText: isUnlock ? 'Unlock to Draft' : 'Revert Payment',
+      variant: 'warning',
+      action: async () => {
+        if (!window.electronAPI) return;
+        await window.electronAPI.revertSalaryStatus(s.id, targetStatus);
+        setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        await loadData();
+      },
+    });
+  };
+
+  const handleDeleteRecord = (s: DriverSalaryRecord) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: '🗑️ Delete Salary Record',
+      message: `Are you sure you want to permanently delete the payroll record for ${s.driverName} in ${formattedPeriodTitle}? Any manual adjustments attached will also be removed.`,
+      confirmText: 'Delete Record',
+      variant: 'danger',
+      action: async () => {
+        if (!window.electronAPI) return;
+        await window.electronAPI.deleteSalaryRecord(s.id);
+        setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        await loadData();
+      },
+    });
+  };
+
+  const handleReopenMonthPeriod = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: '🔓 Reopen Entire Month Payroll',
+      message: `Are you sure you want to reopen all finalized payroll records for ${formattedPeriodTitle}? This will unlock all driver records back to Draft so you can adjust rates or re-draft.`,
+      confirmText: 'Reopen All Drafts',
+      variant: 'warning',
+      action: async () => {
+        if (!window.electronAPI) return;
+        await window.electronAPI.reopenPayrollPeriod(salaryPeriod);
+        setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        await loadData();
+      },
+    });
+  };
+
+  // 6. Audited Adjustment Handlers
   const handleOpenAdjustment = async (s: DriverSalaryRecord) => {
     setSelectedSalaryForAdj(s);
     setAdjType('ADVANCE');
@@ -435,6 +545,7 @@ export const DriverSalariesPage: React.FC = () => {
 
   const hasDrafts = (masterSummary?.draftCount || 0) > 0;
   const hasRecords = salaries.length > 0;
+  const hasFinalizedOnly = hasRecords && !hasDrafts && (masterSummary?.finalizedCount || 0) > 0;
 
   const columns: Column<DriverSalaryRecord>[] = [
     {
@@ -482,14 +593,14 @@ export const DriverSalariesPage: React.FC = () => {
     },
     {
       key: 'basicSalary',
-      header: 'Basic Salary',
+      header: 'Basic Salary (AED)',
       align: 'right',
       className: 'font-mono text-slate-700 font-semibold',
       render: (s) => `AED ${s.basicSalary.toLocaleString()}`,
     },
     {
       key: 'tripEarnings',
-      header: 'Completed Trips & Rate Decision',
+      header: 'Completed Trips & Rate',
       align: 'right',
       className: 'font-mono',
       render: (s) => {
@@ -500,23 +611,23 @@ export const DriverSalariesPage: React.FC = () => {
         const hasTrips = (s.totalTrips || 0) > 0;
 
         return (
-          <div className="text-right">
+          <div className="text-right space-y-0.5">
             <span className={`block text-xs font-black font-mono ${hasTrips ? 'text-sky-800' : 'text-slate-400'}`}>
               {hasTrips && (s.tripEarnings || 0) > 0 ? `+AED ${(s.tripEarnings || 0).toLocaleString()}` : '+AED 0'}
             </span>
-            <div className="flex items-center justify-end gap-1.5 text-[10px] text-slate-500">
+            <div className="flex items-center justify-end gap-1.5 text-[10px] text-slate-500 font-sans">
               <span className="font-bold">{s.totalTrips || 0} trips</span>
               {isDraft ? (
                 <button
                   type="button"
                   onClick={() => handleOpenDriverRateModal(s)}
-                  className="px-2 py-0.5 rounded-lg bg-sky-50 text-sky-700 font-black hover:bg-sky-100 transition border border-sky-200 shadow-2xs cursor-pointer"
-                  title="Click to decide/change this driver's month-end trip rate"
+                  className="px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 font-black hover:bg-sky-100 transition border border-sky-200 shadow-2xs cursor-pointer text-[10px]"
+                  title="Click to decide/change rate"
                 >
-                  {rate > 0 ? `@AED ${rate}/trip ✏️` : 'Set Rate ✏️'}
+                  {rate > 0 ? `@AED ${rate}/trip` : 'Set Rate'}
                 </button>
               ) : (
-                rate > 0 && <span className="text-slate-400 font-mono">(@AED {rate}/trip)</span>
+                rate > 0 && <span className="text-slate-400 font-mono">(@AED ${rate})</span>
               )}
             </div>
           </div>
@@ -560,19 +671,41 @@ export const DriverSalariesPage: React.FC = () => {
     },
     {
       key: 'netSalary',
-      header: 'Net Payable (AED)',
+      header: 'Net Salary (AED)',
       align: 'right',
-      className: 'font-mono font-extrabold text-emerald-600 text-sm whitespace-nowrap',
-      render: (s) => `AED ${s.netSalary.toLocaleString()}`,
+      className: 'font-mono text-sm whitespace-nowrap',
+      render: (s) => {
+        const isPaid = s.paymentStatus === 'PAID';
+        return (
+          <div className="text-right space-y-0.5">
+            <span
+              className={`font-mono font-black text-sm ${
+                isPaid ? 'text-emerald-700' : 'text-slate-900'
+              }`}
+            >
+              AED {s.netSalary.toLocaleString()}
+            </span>
+            {isPaid ? (
+              <span className="block text-[10px] font-bold text-emerald-600">
+                ✓ Disbursed
+              </span>
+            ) : (
+              <span className="block text-[10px] font-medium text-amber-600">
+                ● Pending Payout
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'paymentStatus',
-      header: 'Lifecycle Status',
+      header: 'Status',
       align: 'center',
       render: (s) => (
         <div className="flex flex-col items-center gap-0.5">
           <span
-            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold tracking-tight shadow-2xs ${
               s.paymentStatus === 'PAID'
                 ? 'bg-emerald-100 text-emerald-800'
                 : s.paymentStatus === 'FINALIZED'
@@ -602,25 +735,85 @@ export const DriverSalariesPage: React.FC = () => {
       header: 'Actions',
       align: 'right',
       render: (s) => {
-        const isLocked = s.paymentStatus === 'FINALIZED' || s.paymentStatus === 'PAID';
+        const isPaid = s.paymentStatus === 'PAID';
+        const isFinalized = s.paymentStatus === 'FINALIZED';
+
         return (
-          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
-            <button
-              onClick={() => handleOpenAdjustment(s)}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-violet-700 hover:bg-violet-50 transition border border-slate-200 shadow-2xs"
-              title={isLocked ? 'View Adjustments (Locked)' : 'Add / View Audited Adjustments'}
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-            </button>
+          <div className="flex items-center justify-end gap-2 whitespace-nowrap relative">
+            {/* 1. Primary Action: Pay (Full rounded-full pill) */}
+            {!isPaid && (
+              <Button
+                onClick={() => handleOpenIndividualPay(s)}
+                variant="primary"
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-8 px-3.5 text-[11px] shadow-2xs"
+                icon={<CreditCard className="w-3.5 h-3.5" />}
+                title={`Disburse payment to ${s.driverName}`}
+              >
+                Pay
+              </Button>
+            )}
+
+            {/* 2. Audited Adjustments Action: Full rounded-full outline button */}
             <Button
-              onClick={() => handlePrintDriverLedger(s)}
+              onClick={() => handleOpenAdjustment(s)}
               variant="outline"
               size="sm"
-              icon={<Printer className="w-3.5 h-3.5 text-violet-600" />}
+              className="h-8 px-3 text-[11px] font-bold border-violet-200 text-violet-700 hover:bg-violet-50 shadow-2xs"
+              icon={<Sliders className="w-3.5 h-3.5 text-violet-600" />}
+              title={isPaid ? 'View Adjustments (Paid)' : 'Add / View Audited Adjustments'}
+            >
+              Adjust
+            </Button>
+
+            {/* 3. Document Action: Payslip (Full rounded-full outline button) */}
+            <Button
+              onClick={() => handlePrintDriverLedger(s)}
+              variant="secondary"
+              size="sm"
+              className="h-8 px-3 text-[11px] font-bold shadow-2xs"
+              icon={<Printer className="w-3.5 h-3.5 text-slate-600" />}
               title="Print A4 Driver Payslip & Ledger"
             >
               Payslip
             </Button>
+
+            {/* 4. Action Dropdown matching SelectDropdown architecture */}
+            <ActionDropdown
+              align="right"
+              direction="auto"
+              items={[
+                {
+                  id: 'edit',
+                  label: 'Edit Record Details',
+                  icon: <Edit className="w-3.5 h-3.5 text-slate-400" />,
+                  onClick: () => handleOpenManualEntry(s.driverId),
+                },
+                {
+                  id: 'unlock',
+                  label: 'Unlock to Draft',
+                  icon: <Unlock className="w-3.5 h-3.5 text-amber-500" />,
+                  variant: 'warning',
+                  disabled: !isFinalized,
+                  onClick: () => handleRevertStatus(s, 'DRAFT'),
+                },
+                {
+                  id: 'revert-pay',
+                  label: 'Revert Payment',
+                  icon: <RotateCcw className="w-3.5 h-3.5 text-amber-500" />,
+                  variant: 'warning',
+                  disabled: !isPaid,
+                  onClick: () => handleRevertStatus(s, 'DRAFT'),
+                },
+                {
+                  id: 'delete',
+                  label: 'Delete Record',
+                  icon: <Trash2 className="w-3.5 h-3.5 text-rose-500" />,
+                  variant: 'danger',
+                  onClick: () => handleDeleteRecord(s),
+                },
+              ]}
+            />
           </div>
         );
       },
@@ -629,64 +822,69 @@ export const DriverSalariesPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-4">
-      {/* 1. Top Master Period & Dynamic Action Dashboard Strip */}
+      {/* 1. Unified Master Header & Action Toolbar */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-4 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3.5">
-          {/* Quick Month Selector */}
+          {/* Unified Enterprise Month Navigator (Fully rounded pills) */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/70">
+            <div className="inline-flex items-center bg-slate-100/90 p-1 rounded-full border border-slate-200/80 shadow-2xs">
               <button
                 type="button"
                 onClick={() => navigateMonth(-1)}
-                className="w-7 h-7 rounded-lg bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 shadow-2xs transition"
+                className="w-7 h-7 rounded-full bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 shadow-2xs transition"
                 title="Previous Month"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              <div className="px-2.5 py-0.5 text-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Payroll Period
-                </span>
-                <span className="text-xs font-black text-slate-900 tracking-tight block">
+              {/* Central Interactive Month Badge */}
+              <div
+                onClick={() => monthInputRef.current?.showPicker?.()}
+                className="px-3.5 py-1 flex items-center gap-2 cursor-pointer hover:bg-white/80 rounded-full transition"
+                title="Click to select specific month"
+              >
+                <Calendar className="w-3.5 h-3.5 text-violet-600" />
+                <span className="text-xs font-black text-slate-900 tracking-tight">
                   {formattedPeriodTitle}
                 </span>
+
+                {/* Hidden Native Picker Attached for Direct Clicking */}
+                <input
+                  ref={monthInputRef}
+                  type="month"
+                  value={salaryPeriod}
+                  onChange={(e) => setSalaryPeriod(e.target.value)}
+                  className="sr-only"
+                />
               </div>
 
               <button
                 type="button"
                 onClick={() => navigateMonth(1)}
-                className="w-7 h-7 rounded-lg bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 shadow-2xs transition"
+                className="w-7 h-7 rounded-full bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 shadow-2xs transition"
                 title="Next Month"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="month"
-                value={salaryPeriod}
-                onChange={(e) => setSalaryPeriod(e.target.value)}
-                className="h-8.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 focus:border-violet-600 focus:bg-white rounded-lg px-2.5 text-xs font-mono font-bold text-slate-800 focus:outline-none transition shadow-2xs cursor-pointer"
-                title="Select Specific Month & Year"
-              />
-              <span className="text-xs font-semibold text-slate-600 hidden sm:inline">
-                {masterSummary?.workingDrivers || 0} active drivers worked ({masterSummary?.completedTrips || 0} completed trips)
-              </span>
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+              <span className="font-bold text-slate-800">{masterSummary?.workingDrivers || 0}</span> active drivers
+              <span className="text-slate-300">·</span>
+              <span className="font-bold text-slate-800">{masterSummary?.completedTrips || 0}</span> trips completed
             </div>
           </div>
 
-          {/* Context-Aware Dynamic Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Standardized Cohesive Top Action Bar (All buttons full rounded) */}
+          <div className="flex flex-wrap items-center gap-2.5">
             {!hasRecords ? (
               <Button
                 onClick={() => setIsDraftRateModalOpen(true)}
                 isLoading={isGenerating}
                 variant="primary"
+                size="sm"
                 icon={<Sparkles className="w-4 h-4 text-white" />}
-                className="btn-primary-gradient"
-                title="Decide per-trip rate and prepare monthly payroll draft"
+                className="btn-primary-gradient shadow-xs"
               >
                 Prepare {formattedPeriodTitle} Draft
               </Button>
@@ -695,7 +893,9 @@ export const DriverSalariesPage: React.FC = () => {
                 <Button
                   onClick={() => setIsFinalizeModalOpen(true)}
                   variant="primary"
+                  size="sm"
                   icon={<Lock className="w-4 h-4 text-white" />}
+                  className="btn-primary-gradient shadow-xs"
                   title="Lock drafted payroll into immutable historical snapshot"
                 >
                   Finalize Payroll ({masterSummary?.draftCount} Drafts)
@@ -706,6 +906,7 @@ export const DriverSalariesPage: React.FC = () => {
                   isLoading={isGenerating}
                   variant="outline"
                   size="sm"
+                  className="border-violet-200 text-violet-700 hover:bg-violet-50"
                   icon={<DollarSign className="w-4 h-4 text-violet-600" />}
                   title="Decide baseline trip rate for all draft drivers in this month"
                 >
@@ -713,25 +914,41 @@ export const DriverSalariesPage: React.FC = () => {
                 </Button>
               </>
             ) : (
-              <Button
-                onClick={() => setIsPayModalOpen(true)}
-                variant="primary"
-                icon={<CreditCard className="w-4 h-4 text-white" />}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                title="Disburse payments and record WPS / Bank Transfer audit metadata"
-              >
-                {selectedIds.length > 0
-                  ? `Mark ${selectedIds.length} Selected Paid`
-                  : `Mark ${masterSummary?.finalizedCount || 0} Finalized as Paid`}
-              </Button>
+              <>
+                <Button
+                  onClick={handleOpenBatchPay}
+                  variant="primary"
+                  size="sm"
+                  icon={<CreditCard className="w-4 h-4 text-white" />}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                  title="Disburse payments and record WPS / Bank Transfer audit metadata"
+                >
+                  {selectedIds.length > 0
+                    ? `Mark ${selectedIds.length} Selected Paid`
+                    : `Mark ${masterSummary?.finalizedCount || 0} Finalized as Paid`}
+                </Button>
+
+                {hasFinalizedOnly && (
+                  <Button
+                    onClick={handleReopenMonthPeriod}
+                    variant="outline"
+                    size="sm"
+                    className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                    icon={<Unlock className="w-4 h-4 text-amber-600" />}
+                    title="Unlock and reopen all finalized drafts for this month to correct mistakes"
+                  >
+                    Reopen Drafts
+                  </Button>
+                )}
+              </>
             )}
 
             {/* Manual Entry Secondary Option */}
             <Button
               onClick={() => handleOpenManualEntry()}
-              variant="outline"
+              variant="secondary"
               size="sm"
-              icon={<Plus className="w-4 h-4" />}
+              icon={<Plus className="w-4 h-4 text-slate-600" />}
               title="Single Driver Payroll Entry (Ctrl+N)"
             >
               Manual Entry
@@ -739,10 +956,10 @@ export const DriverSalariesPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 2. Redesigned Financial KPI Metric Cards */}
+        {/* 2. Refined Financial KPI Hero Metric Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
           {/* Base Salaries */}
-          <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl flex flex-col justify-between shadow-2xs">
+          <div className="p-3.5 bg-slate-50/80 border border-slate-200/90 rounded-2xl flex flex-col justify-between shadow-2xs">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 Base Salaries
@@ -815,32 +1032,51 @@ export const DriverSalariesPage: React.FC = () => {
             </div>
           </div>
 
-          {/* = Total Net Payable Hero Card */}
-          <div className="p-3.5 bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-2xl flex flex-col justify-between col-span-2 lg:col-span-1 shadow-md">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold text-violet-200 uppercase tracking-wider">
-                Total Net Payable
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white">
-                {masterSummary?.paidCount || 0} Paid · {(masterSummary?.draftCount || 0) + (masterSummary?.finalizedCount || 0)} Pending
-              </span>
-            </div>
-            <div>
-              <span className="font-mono font-black text-white text-lg block">
-                AED {(masterSummary?.totalNetPayable || 0).toLocaleString()}
-              </span>
-              <span className="text-[10px] text-violet-200 font-medium">
-                {salaries.length} rostered drivers
-              </span>
-            </div>
-          </div>
+          {/* = Dynamic Total Disbursed / Payroll Hero Card */}
+          {(() => {
+            const isAllPaid = salaries.length > 0 && (masterSummary?.paidCount || 0) === salaries.length;
+            const pendingCount = (masterSummary?.draftCount || 0) + (masterSummary?.finalizedCount || 0);
+            const totalPaid = masterSummary?.totalPaid || 0;
+            const totalPending = masterSummary?.totalPending || 0;
+
+            return (
+              <div
+                className={`p-3.5 text-white rounded-2xl flex flex-col justify-between col-span-2 lg:col-span-1 shadow-md ${
+                  isAllPaid
+                    ? 'bg-gradient-to-br from-emerald-600 to-teal-700'
+                    : 'bg-gradient-to-br from-violet-600 to-indigo-700'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-bold text-white/90 uppercase tracking-wider">
+                    {isAllPaid ? 'Total Disbursed (Paid)' : 'Total Payroll'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white backdrop-blur-xs">
+                    {isAllPaid
+                      ? `✓ All ${salaries.length} Paid`
+                      : `${masterSummary?.paidCount || 0} Paid · ${pendingCount} Pending`}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-mono font-black text-white text-base block">
+                    AED {(isAllPaid ? totalPaid : (masterSummary?.totalNetPayable || 0)).toLocaleString()}
+                  </span>
+                  <span className="text-[10px] text-white/80 font-medium">
+                    {isAllPaid
+                      ? `${salaries.length} drivers fully disbursed`
+                      : `AED ${totalPaid.toLocaleString()} Paid · AED ${totalPending.toLocaleString()} Pending`}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
       {/* 3. Filter Tabs & Search Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 text-xs">
+        {/* Status Filter Tabs (Fully rounded pills) */}
+        <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-full border border-slate-200/80 text-xs shadow-2xs">
           {[
             { id: 'ALL', label: 'All', count: salaries.length },
             { id: 'DRAFT', label: 'Draft', count: masterSummary?.draftCount || 0 },
@@ -851,7 +1087,7 @@ export const DriverSalariesPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id as any)}
-              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full font-bold transition flex items-center gap-1.5 ${
                 statusFilter === tab.id
                   ? 'bg-white text-violet-700 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -859,7 +1095,7 @@ export const DriverSalariesPage: React.FC = () => {
             >
               <span>{tab.label}</span>
               <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
                   statusFilter === tab.id
                     ? 'bg-violet-100 text-violet-800'
                     : 'bg-slate-200/80 text-slate-600'
@@ -905,8 +1141,9 @@ export const DriverSalariesPage: React.FC = () => {
                 onClick={() => setIsDraftRateModalOpen(true)}
                 isLoading={isGenerating}
                 variant="primary"
+                size="sm"
                 icon={<Sparkles className="w-4 h-4 text-white" />}
-                className="btn-primary-gradient"
+                className="btn-primary-gradient shadow-xs"
               >
                 Prepare {formattedPeriodTitle} Payroll Draft
               </Button>
@@ -1086,11 +1323,14 @@ export const DriverSalariesPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* MODAL 2: Batch Payment Confirmation Modal */}
+      {/* MODAL 2: Payment Disbursement Modal (Individual or Batch) */}
       <Modal
         isOpen={isPayModalOpen}
-        onClose={() => setIsPayModalOpen(false)}
-        title="💳 Record Payroll Disbursement"
+        onClose={() => {
+          setIsPayModalOpen(false);
+          setSelectedSalaryForPay(null);
+        }}
+        title={`💳 Record Payment Disbursement: ${selectedSalaryForPay ? selectedSalaryForPay.driverName : formattedPeriodTitle}`}
         maxWidth="md"
       >
         <form onSubmit={handlePayConfirm} className="space-y-4 text-xs">
@@ -1101,7 +1341,9 @@ export const DriverSalariesPage: React.FC = () => {
             <div className="flex justify-between">
               <span className="font-sans text-slate-600">Disbursing To:</span>
               <span className="font-bold">
-                {selectedIds.length > 0
+                {selectedSalaryForPay
+                  ? `${selectedSalaryForPay.driverName} (${selectedSalaryForPay.salaryPeriod})`
+                  : selectedIds.length > 0
                   ? `${selectedIds.length} Selected Drivers`
                   : `${masterSummary?.eligibleDrivers || 0} Drivers (${formattedPeriodTitle})`}
               </span>
@@ -1109,7 +1351,7 @@ export const DriverSalariesPage: React.FC = () => {
             <div className="flex justify-between">
               <span className="font-sans text-slate-600">Total Net Amount:</span>
               <span className="font-black text-emerald-700 text-sm">
-                AED {(masterSummary?.totalPending || 0).toLocaleString()}
+                AED {selectedSalaryForPay ? selectedSalaryForPay.netSalary.toLocaleString() : (masterSummary?.totalPending || 0).toLocaleString()}
               </span>
             </div>
           </div>
@@ -1174,10 +1416,19 @@ export const DriverSalariesPage: React.FC = () => {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" size="sm" type="button" onClick={() => setIsPayModalOpen(false)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              disabled={isPaying}
+              onClick={() => {
+                setIsPayModalOpen(false);
+                setSelectedSalaryForPay(null);
+              }}
+            >
               Cancel
             </Button>
-            <Button variant="primary" size="sm" type="submit">
+            <Button variant="primary" size="sm" type="submit" isLoading={isPaying}>
               Confirm & Mark as Paid
             </Button>
           </div>
@@ -1193,7 +1444,7 @@ export const DriverSalariesPage: React.FC = () => {
       >
         <div className="space-y-4 text-xs">
           {/* Header Summary */}
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between font-mono">
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between font-mono">
             <div>
               <span className="font-sans font-bold text-slate-800 block text-xs">
                 {selectedSalaryForAdj?.driverName}
@@ -1229,7 +1480,7 @@ export const DriverSalariesPage: React.FC = () => {
               >
                 <div className="flex items-center gap-2.5">
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${
                       adj.adjustmentType === 'BONUS'
                         ? 'bg-emerald-100 text-emerald-800'
                         : adj.adjustmentType === 'ADVANCE'
@@ -1256,7 +1507,7 @@ export const DriverSalariesPage: React.FC = () => {
                     {adj.adjustmentType === 'BONUS' ? '+' : '-'}AED {adj.amount.toLocaleString()}
                   </span>
 
-                  {selectedSalaryForAdj.paymentStatus === 'DRAFT' && (
+                  {selectedSalaryForAdj.paymentStatus !== 'PAID' && (
                     <button
                       type="button"
                       onClick={() => handleDeleteAdjustment(adj.id)}
@@ -1271,8 +1522,8 @@ export const DriverSalariesPage: React.FC = () => {
             ))}
           </div>
 
-          {/* Form to Add New Audited Adjustment (Only if DRAFT) */}
-          {selectedSalaryForAdj?.paymentStatus === 'DRAFT' ? (
+          {/* Form to Add New Audited Adjustment */}
+          {selectedSalaryForAdj?.paymentStatus !== 'PAID' ? (
             <form onSubmit={handleAddAdjustment} className="p-4 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-3">
               <span className="font-bold text-slate-800 block text-xs">
                 + Add Audited Adjustment
@@ -1330,10 +1581,10 @@ export const DriverSalariesPage: React.FC = () => {
               </div>
             </form>
           ) : (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] font-medium flex items-center gap-2">
-              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-[11px] font-medium flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
-                This salary record is <strong>{selectedSalaryForAdj?.paymentStatus}</strong>. Adjustments are locked and cannot be modified.
+                This salary record is <strong>PAID</strong>. Revert payment status if you need to modify adjustments.
               </span>
             </div>
           )}
@@ -1346,11 +1597,11 @@ export const DriverSalariesPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* MODAL 4: Single Driver Custom Process Modal */}
+      {/* MODAL 4: Single Driver Custom Process / Edit Modal */}
       <Modal
         isOpen={isSingleModalOpen}
         onClose={() => setIsSingleModalOpen(false)}
-        title="Manual Driver Payroll Entry"
+        title="Driver Payroll Entry & Editor"
         maxWidth="xl"
       >
         <form onSubmit={handleSingleSave} className="space-y-4">
@@ -1488,6 +1739,17 @@ export const DriverSalariesPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Reusable UI Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmConfig.action}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText={confirmConfig.confirmText}
+        variant={confirmConfig.variant}
+      />
     </div>
   );
 };

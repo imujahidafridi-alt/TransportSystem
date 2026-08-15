@@ -330,7 +330,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px]">
                 <tr>
                   <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Transport #</th>
+                  <th className="py-2.5 px-3">Invoice #</th>
                   <th className="py-2.5 px-3">From ➔ To Location</th>
                   <th className="py-2.5 px-3">Vehicle</th>
                   <th className="py-2.5 px-3">Driver</th>

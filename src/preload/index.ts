@@ -49,6 +49,10 @@ const api = {
   getSalaryAdjustments: (salaryRecordId: string) => ipcRenderer.invoke('salaries:get-adjustments', salaryRecordId),
   addSalaryAdjustment: (data: { salaryRecordId: string; adjustmentType: 'BONUS' | 'DEDUCTION' | 'ADVANCE'; amount: number; reason: string; createdBy?: string }) => ipcRenderer.invoke('salaries:add-adjustment', data),
   deleteSalaryAdjustment: (id: string) => ipcRenderer.invoke('salaries:delete-adjustment', id),
+  revertSalaryStatus: (id: string, targetStatus: 'DRAFT' | 'FINALIZED') =>
+    ipcRenderer.invoke('salaries:revert-status', { id, targetStatus }),
+  deleteSalaryRecord: (id: string) => ipcRenderer.invoke('salaries:delete', id),
+  reopenPayrollPeriod: (period: string) => ipcRenderer.invoke('salaries:reopen-period', period),
   getMasterPayrollSummary: (period: string) => ipcRenderer.invoke('salaries:master-summary', period),
 
   // Dashboard & Reports

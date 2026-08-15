@@ -178,7 +178,7 @@ export const SecuritySettingsModal: React.FC = () => {
             <p className="text-[11px] text-slate-500 mt-0.5">
               {isEnabled
                 ? 'Protected with salted PBKDF2 cryptography and inactivity auto-lock.'
-                : 'Secure your fleet ERP financial records and driver payroll with a numeric passcode.'}
+                : 'Secure your TripLedger ERP financial records and driver payroll with a numeric passcode.'}
             </p>
           </div>
         </div>

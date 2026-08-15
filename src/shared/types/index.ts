@@ -72,6 +72,7 @@ export interface Transport {
 export interface VehicleExpense {
   id: string;
   transportId?: string;
+  transportNo?: string;
   vehicleId: string;
   vehicleRegistration?: string;
   date: string;
@@ -90,6 +91,7 @@ export interface VehicleExpense {
 export interface FuelRecord {
   id: string;
   transportId?: string;
+  transportNo?: string;
   vehicleId: string;
   vehicleRegistration?: string;
   date: string;
@@ -108,6 +110,7 @@ export interface FuelRecord {
 export interface MaintenanceRecord {
   id: string;
   transportId?: string;
+  transportNo?: string;
   vehicleId: string;
   vehicleRegistration?: string;
   date: string;

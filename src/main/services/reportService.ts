@@ -33,6 +33,7 @@ export interface ProfitAndLossStatement {
   fuelCost: number;
   maintenanceCost: number;
   otherExpenses: number;
+  driverSalaries: number;
   totalOperatingCosts: number;
   netProfit: number;
   profitMarginPercentage: number;
@@ -271,7 +272,25 @@ export function getProfitAndLossStatement(filter: ReportFilter): ProfitAndLossSt
   const maintenanceCost = maintRow?.maint || 0;
   const otherExpenses = expRow?.exp || 0;
 
-  const totalOperatingCosts = fuelCost + maintenanceCost + otherExpenses;
+  // 3. Driver Payroll & Commission Overheads
+  let salaryCondition = '';
+  const salaryParams: string[] = [];
+  if (filter.startDate && filter.endDate) {
+    const startPeriod = filter.startDate.slice(0, 7);
+    const endPeriod = filter.endDate.slice(0, 7);
+    salaryCondition = 'WHERE (payment_date >= ? AND payment_date <= ?) OR (salary_period >= ? AND salary_period <= ?)';
+    salaryParams.push(filter.startDate, filter.endDate, startPeriod, endPeriod);
+  }
+
+  const salaryRow = db.prepare(`
+    SELECT COALESCE(SUM(net_salary), 0) as salaries
+    FROM driver_salary_records
+    ${salaryCondition}
+  `).get(...salaryParams) as { salaries: number };
+
+  const driverSalaries = salaryRow?.salaries || 0;
+
+  const totalOperatingCosts = fuelCost + maintenanceCost + otherExpenses + driverSalaries;
   const netProfit = totalGrossRevenue - totalOperatingCosts;
   const profitMarginPercentage = totalGrossRevenue > 0 ? (netProfit / totalGrossRevenue) * 100 : 0;
 
@@ -288,6 +307,7 @@ export function getProfitAndLossStatement(filter: ReportFilter): ProfitAndLossSt
     fuelCost,
     maintenanceCost,
     otherExpenses,
+    driverSalaries,
     totalOperatingCosts,
     netProfit,
     profitMarginPercentage: parseFloat(profitMarginPercentage.toFixed(2)),

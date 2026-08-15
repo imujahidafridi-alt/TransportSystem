@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { VehicleExpense, Vehicle } from '@shared/types';
-import { Plus, Truck, Edit3 } from 'lucide-react';
+import { Plus, Truck, Edit3, Link as LinkIcon, CreditCard, Building } from 'lucide-react';
 import { useKeyboardShortcuts } from '../context/KeyboardShortcutContext';
 import { SearchBox } from '../components/common/SearchBox';
 import { DataTable, Column } from '../components/common/DataTable';
 import { SelectDropdown } from '../components/common/SelectDropdown';
 import { Button } from '../components/common/Button';
+import { ExportButton } from '../components/common/ExportButton';
+import { PrintButton } from '../components/common/PrintButton';
 import { Modal } from '../components/common/Modal';
 
 const PRESET_CATEGORIES = [
@@ -26,6 +28,7 @@ export const ExpensesPage: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [search, setSearch] = useState('');
+  const [costFilter, setCostFilter] = useState<'ALL' | 'DIRECT_TRIP' | 'OVERHEAD' | 'PAYROLL'>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -116,15 +119,79 @@ export const ExpensesPage: React.FC = () => {
   };
 
   const filteredExpenses = expenses.filter((e) => {
+    // Cost Classification Filter
+    if (costFilter === 'DIRECT_TRIP' && !e.transportId) return false;
+    if (costFilter === 'OVERHEAD' && (e.transportId || e.expenseType === 'Driver Payroll')) return false;
+    if (costFilter === 'PAYROLL' && e.expenseType !== 'Driver Payroll') return false;
+
     if (!search) return true;
     const q = search.toLowerCase();
     return (
       e.vehicleRegistration?.toLowerCase().includes(q) ||
       e.expenseType.toLowerCase().includes(q) ||
       e.description?.toLowerCase().includes(q) ||
-      e.vendor?.toLowerCase().includes(q)
+      e.vendor?.toLowerCase().includes(q) ||
+      e.transportNo?.toLowerCase().includes(q)
     );
   });
+
+  const directTripCount = expenses.filter((e) => Boolean(e.transportId)).length;
+  const overheadCount = expenses.filter((e) => !e.transportId && e.expenseType !== 'Driver Payroll').length;
+  const payrollCount = expenses.filter((e) => e.expenseType === 'Driver Payroll').length;
+
+  const handleExportCSV = () => {
+    const headers = ['Date', 'Vehicle Reg', 'Invoice #', 'Expense Type', 'Description', 'Vendor', 'Classification', 'Amount (AED)'];
+    const rows = filteredExpenses.map((e) => [
+      e.date,
+      e.vehicleRegistration || '',
+      e.transportNo || '',
+      e.expenseType,
+      e.description || '',
+      e.vendor || '',
+      e.transportId ? 'Direct Trip Cost' : e.expenseType === 'Driver Payroll' ? 'Driver Payroll' : 'Fleet Overhead',
+      e.amount,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.map((cell) => `"${cell}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Expenses_Ledger_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrintPDF = () => {
+    if (!window.electronAPI) return;
+    const columnsForPdf = [
+      { key: 'date', header: 'Date' },
+      { key: 'vehicleRegistration', header: 'Vehicle' },
+      { key: 'transportNoDisplay', header: 'Invoice #' },
+      { key: 'expenseType', header: 'Expense Type' },
+      { key: 'description', header: 'Description' },
+      { key: 'vendor', header: 'Vendor / Payee' },
+      { key: 'classificationDisplay', header: 'Classification' },
+      { key: 'amountFormatted', header: 'Amount (AED)', align: 'right' as const },
+    ];
+    const totalAmount = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+
+    window.electronAPI.openReportPdfPreview({
+      title: 'Operating Expenses & Maintenance Ledger',
+      description: `Showing ${filteredExpenses.length} expense records`,
+      columns: columnsForPdf,
+      data: filteredExpenses.map((e) => ({
+        ...e,
+        transportNoDisplay: e.transportNo || '-',
+        classificationDisplay: e.transportId ? 'Direct Trip' : e.expenseType === 'Driver Payroll' ? 'Payroll' : 'Overhead',
+        amountFormatted: e.amount.toLocaleString(),
+      })),
+      kpis: [
+        { label: 'Total Expense Sum', value: `AED ${totalAmount.toLocaleString()}` },
+        { label: 'Total Records Count', value: `${filteredExpenses.length} Records` },
+      ],
+      orientation: 'landscape',
+    });
+  };
 
   const columns: Column<VehicleExpense>[] = [
     {
@@ -141,6 +208,7 @@ export const ExpensesPage: React.FC = () => {
       key: 'expenseType',
       header: 'Expense / Maintenance Type',
       render: (e) => {
+        const isPayroll = e.expenseType === 'Driver Payroll';
         const isMaintenance = [
           'Oil Change',
           'Engine Repair',
@@ -153,12 +221,14 @@ export const ExpensesPage: React.FC = () => {
         return (
           <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-              isMaintenance
+              isPayroll
+                ? 'bg-emerald-100 text-emerald-800'
+                : isMaintenance
                 ? 'bg-violet-100 text-violet-800'
                 : 'bg-sky-100 text-sky-800'
             }`}
           >
-            {isMaintenance ? '🔧' : '🧾'} {e.expenseType}
+            {isPayroll ? '💳' : isMaintenance ? '🔧' : '🧾'} {e.expenseType}
           </span>
         );
       },
@@ -167,12 +237,22 @@ export const ExpensesPage: React.FC = () => {
       key: 'description',
       header: 'Description',
       className: 'text-slate-700',
-      render: (e) => e.description || '-',
+      render: (e) => (
+        <div className="space-y-0.5">
+          <span className="block">{e.description || '-'}</span>
+          {e.transportNo && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">
+              <LinkIcon className="w-3 h-3" />
+              Invoice # {e.transportNo}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: 'vendor',
-      header: 'Vendor / Garage',
-      className: 'text-slate-500',
+      header: 'Vendor / Payee',
+      className: 'text-slate-700 font-medium',
       render: (e) => e.vendor || '-',
     },
     {
@@ -180,23 +260,30 @@ export const ExpensesPage: React.FC = () => {
       header: 'Classification',
       align: 'center',
       render: (e) => {
+        if (e.expenseType === 'Driver Payroll') {
+          return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs whitespace-nowrap">
+              PAYROLL
+            </span>
+          );
+        }
         if (e.transportId) {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs whitespace-nowrap">
-              TRIP COST
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-100 text-violet-800 border border-violet-300 shadow-2xs whitespace-nowrap">
+              🔗 DIRECT TRIP (COGS)
             </span>
           );
         }
         if (e.vehicleId) {
           return (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs whitespace-nowrap">
-              VEHICLE COST
+              FLEET OVERHEAD
             </span>
           );
         }
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
-            OPERATING EXPENSE
+            GENERAL EXPENSE
           </span>
         );
       },
@@ -212,17 +299,17 @@ export const ExpensesPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-4">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1">
+      {/* Top Bar with Search, Filter & Actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-[320px]">
           <SearchBox
             ref={searchInputRef}
             value={search}
             onChange={setSearch}
-            placeholder="Search expenses by type, vehicle reg, description or vendor... (Ctrl+F)"
+            placeholder="Search expenses by type, vehicle reg, description, vendor or invoice #... (Ctrl+F)"
             className="max-w-md"
           />
-          <div className="w-64 shrink-0">
+          <div className="w-60 shrink-0">
             <SelectDropdown
               variant="pill"
               options={[
@@ -244,12 +331,63 @@ export const ExpensesPage: React.FC = () => {
           </div>
         </div>
 
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          icon={<Plus className="w-4 h-4" />}
+        <div className="flex items-center gap-2">
+          <ExportButton onClick={handleExportCSV} />
+          <PrintButton onClick={handlePrintPDF} />
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            icon={<Plus className="w-4 h-4" />}
+          >
+            Record Expense (Ctrl+N)
+          </Button>
+        </div>
+      </div>
+
+      {/* Enterprise Cost Classification Filter Capsules */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-full border border-slate-200/80 w-fit text-xs">
+        <button
+          onClick={() => setCostFilter('ALL')}
+          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 ${
+            costFilter === 'ALL'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/70'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
         >
-          Record Expense (Ctrl+N)
-        </Button>
+          All Expenses ({expenses.length})
+        </button>
+        <button
+          onClick={() => setCostFilter('DIRECT_TRIP')}
+          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
+            costFilter === 'DIRECT_TRIP'
+              ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/25'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <LinkIcon className="w-3.5 h-3.5" />
+          <span>Direct Trip Costs (COGS) ({directTripCount})</span>
+        </button>
+        <button
+          onClick={() => setCostFilter('OVERHEAD')}
+          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
+            costFilter === 'OVERHEAD'
+              ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/25'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Building className="w-3.5 h-3.5" />
+          <span>Fleet General Overhead ({overheadCount})</span>
+        </button>
+        <button
+          onClick={() => setCostFilter('PAYROLL')}
+          className={`px-3.5 py-1 rounded-full font-bold transition-all duration-150 flex items-center gap-1.5 ${
+            costFilter === 'PAYROLL'
+              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/25'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          <span>Driver Payroll ({payrollCount})</span>
+        </button>
       </div>
 
       <DataTable

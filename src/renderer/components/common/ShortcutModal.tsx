@@ -40,7 +40,11 @@ export const ShortcutModal: React.FC<ShortcutModalProps> = ({ isOpen, onClose })
           ))}
         </div>
 
-        <div className="pt-2 flex justify-end">
+        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+          <div className="text-left">
+            <span className="font-bold text-slate-800 text-xs block">TripLedger — Transport & Fleet ERP</span>
+            <p className="text-[10px] text-slate-400 font-medium">v1.0.0 • A product of Afridi Labz • Lead Developer: Mujahid Afridi</p>
+          </div>
           <Button
             variant="primary"
             size="sm"

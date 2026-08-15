@@ -1,7 +1,7 @@
 {
-  "name": "transport-fleet-management",
+  "name": "tripledger",
   "version": "1.0.0",
-  "description": "Transport Management & Fleet Operations System",
+  "description": "TripLedger - Transport & Fleet ERP",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "npm run build:main && concurrently -k \"vite\" \"tsc --project tsconfig.main.json -w\" \"electron .\"",
@@ -15,8 +15,8 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
-    "appId": "com.transportfleet.system",
-    "productName": "Transport Fleet System",
+    "appId": "com.tripledger.app",
+    "productName": "TripLedger",
     "directories": {
       "output": "release"
     },
@@ -36,7 +36,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Transport Fleet System"
+      "shortcutName": "TripLedger"
     },
     "mac": {
       "icon": "public/icon.png"

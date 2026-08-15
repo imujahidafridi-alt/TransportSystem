@@ -20,7 +20,7 @@ function createWindow(): void {
     height: 868,
     minWidth: 1024,
     minHeight: 700,
-    title: 'Transport Management & Fleet Operations',
+    title: 'TripLedger — Transport & Fleet ERP',
     icon: iconPath,
     autoHideMenuBar: true,
     webPreferences: {

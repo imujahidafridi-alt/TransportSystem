@@ -734,10 +734,7 @@ export function createSalaryRecord(data: Omit<DriverSalaryRecord, 'id' | 'netSal
   const existing = db.prepare('SELECT id, payment_status FROM driver_salary_records WHERE driver_id = ? AND salary_period = ?').get(data.driverId, data.salaryPeriod) as { id: string; payment_status: SalaryPaymentStatus } | undefined;
 
   if (existing) {
-    if (existing.payment_status === 'FINALIZED' || existing.payment_status === 'PAID') {
-      throw new Error(`Cannot modify a ${existing.payment_status} salary record.`);
-    }
-
+    const updatedStatus = data.paymentStatus || existing.payment_status || 'DRAFT';
     db.prepare(`
       UPDATE driver_salary_records
       SET basic_salary = ?, total_trips = ?, rate_per_trip = ?, trip_earnings = ?, allowances = ?, deductions = ?, advance = ?,
@@ -753,7 +750,7 @@ export function createSalaryRecord(data: Omit<DriverSalaryRecord, 'id' | 'netSal
       data.advance || 0,
       netSalary,
       data.paymentDate || null,
-      data.paymentStatus || 'DRAFT',
+      updatedStatus,
       data.notes || null,
       now,
       existing.id
@@ -863,6 +860,64 @@ export function updateSalaryStatus(
   `).run(paymentStatus, paymentDate || null, now, id);
 
   return getSalaryById(id)!;
+}
+
+export function revertSalaryStatus(
+  id: string,
+  targetStatus: 'DRAFT' | 'FINALIZED'
+): DriverSalaryRecord {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  if (targetStatus === 'DRAFT') {
+    db.prepare(`
+      UPDATE driver_salary_records
+      SET payment_status = 'DRAFT',
+          finalized_at = NULL,
+          finalized_by = NULL,
+          payment_date = NULL,
+          payment_method = NULL,
+          payment_reference = NULL,
+          paid_by = NULL,
+          updated_at = ?
+      WHERE id = ?
+    `).run(now, id);
+  } else {
+    db.prepare(`
+      UPDATE driver_salary_records
+      SET payment_status = 'FINALIZED',
+          payment_date = NULL,
+          payment_method = NULL,
+          payment_reference = NULL,
+          paid_by = NULL,
+          updated_at = ?
+      WHERE id = ?
+    `).run(now, id);
+  }
+
+  return getSalaryById(id)!;
+}
+
+export function deleteSalaryRecord(id: string): { success: boolean } {
+  const db = getDb();
+  db.prepare('DELETE FROM driver_salary_adjustments WHERE salary_record_id = ?').run(id);
+  db.prepare('DELETE FROM driver_salary_records WHERE id = ?').run(id);
+  return { success: true };
+}
+
+export function reopenPayrollPeriod(salaryPeriod: string): { updatedCount: number } {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const res = db.prepare(`
+    UPDATE driver_salary_records
+    SET payment_status = 'DRAFT',
+        finalized_at = NULL,
+        finalized_by = NULL,
+        updated_at = ?
+    WHERE salary_period = ? AND payment_status = 'FINALIZED'
+  `).run(now, salaryPeriod);
+
+  return { updatedCount: res.changes };
 }
 
 export function getSalaryById(id: string): DriverSalaryRecord | undefined {

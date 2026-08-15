@@ -116,20 +116,33 @@ export const LockScreen: React.FC = () => {
           isShaking ? 'animate-shake' : ''
         }`}
       >
+        {/* TripLedger Brand Header */}
+        <div className="mb-4 text-center">
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight block">
+            TripLedger
+          </h1>
+          <span className="text-[11px] font-bold text-violet-600 uppercase tracking-wider block mt-0.5">
+            Transport & Fleet ERP
+          </span>
+          <span className="text-[10px] text-slate-400 font-medium italic block mt-0.5">
+            Every Trip. Every Cost. Every Ledger.
+          </span>
+        </div>
+
         {/* Lock Icon Badge */}
-        <div className="w-14 h-14 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center text-violet-600 mb-3 shadow-sm">
+        <div className="w-12 h-12 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center text-violet-600 mb-2.5 shadow-sm">
           {isLockedOut ? (
-            <Clock className="w-7 h-7 text-rose-500 animate-pulse" />
+            <Clock className="w-6 h-6 text-rose-500 animate-pulse" />
           ) : (
-            <Lock className="w-7 h-7 text-violet-600" />
+            <Lock className="w-6 h-6 text-violet-600" />
           )}
         </div>
 
-        <h2 className="text-xl font-black text-slate-900 tracking-tight">
-          Session Protected
+        <h2 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center justify-center gap-1.5">
+          <span>🔒 Application Locked</span>
         </h2>
-        <p className="text-xs text-slate-500 mt-1 mb-5">
-          Enter your security PIN and press <strong>Enter</strong>
+        <p className="text-xs text-slate-500 mt-0.5 mb-4">
+          Welcome back! Enter PIN to resume session
         </p>
 
         {/* Dynamic PIN Dots Display */}

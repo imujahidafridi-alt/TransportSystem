@@ -30,7 +30,7 @@ export const ExcelTransportGrid: React.FC<ExcelTransportGridProps> = ({
     },
     {
       key: 'transportNo',
-      header: 'Transport #',
+      header: 'Invoice #',
       className: 'font-mono font-bold text-violet-700 whitespace-nowrap',
     },
     {
