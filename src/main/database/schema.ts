@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
 CREATE TABLE IF NOT EXISTS transports (
   id TEXT PRIMARY KEY,
   transport_no TEXT NOT NULL UNIQUE,
+  reference_no TEXT,
   date TEXT NOT NULL,
   transport_type TEXT NOT NULL,
   material_name TEXT,

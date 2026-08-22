@@ -31,7 +31,17 @@ export const ExcelTransportGrid: React.FC<ExcelTransportGridProps> = ({
     {
       key: 'transportNo',
       header: 'Invoice #',
-      className: 'font-mono font-bold text-violet-700 whitespace-nowrap',
+      className: 'whitespace-nowrap',
+      render: (t) => (
+        <div className="flex flex-col leading-tight">
+          <span className="font-mono font-bold text-violet-700">{t.transportNo}</span>
+          {t.referenceNo ? (
+            <span className="text-[10px] font-mono text-slate-500 font-medium">
+              Ref: {t.referenceNo}
+            </span>
+          ) : null}
+        </div>
+      ),
     },
     {
       key: 'transportType',

@@ -29,6 +29,7 @@ export const TransportFormModal: React.FC<TransportFormModalProps> = ({
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [transportType, setTransportType] = useState<TransportType>('TRIP');
   const [materialName, setMaterialName] = useState('');
+  const [referenceNo, setReferenceNo] = useState('');
   const [fromLocationId, setFromLocationId] = useState('');
   const [toLocationId, setToLocationId] = useState('');
   const [vehicleId, setVehicleId] = useState('');
@@ -62,6 +63,7 @@ export const TransportFormModal: React.FC<TransportFormModalProps> = ({
         setDate(initialData.date);
         setTransportType(initialData.transportType);
         setMaterialName(initialData.materialName || '');
+        setReferenceNo(initialData.referenceNo || '');
         setFromLocationId(initialData.fromLocationId);
         setToLocationId(initialData.toLocationId);
         setVehicleId(initialData.vehicleId);
@@ -75,6 +77,7 @@ export const TransportFormModal: React.FC<TransportFormModalProps> = ({
         setDate(new Date().toISOString().slice(0, 10));
         setTransportType('TRIP');
         setMaterialName('');
+        setReferenceNo('');
         setFromLocationId(locations[0]?.id || '');
         setToLocationId(locations[1]?.id || locations[0]?.id || '');
         setVehicleId(vehicles[0]?.id || '');
@@ -123,6 +126,7 @@ export const TransportFormModal: React.FC<TransportFormModalProps> = ({
         date,
         transportType,
         materialName,
+        referenceNo: referenceNo.trim() || undefined,
         fromLocationId,
         toLocationId,
         vehicleId,
@@ -246,15 +250,31 @@ export const TransportFormModal: React.FC<TransportFormModalProps> = ({
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Material Name</label>
-            <input
-              type="text"
-              value={materialName}
-              onChange={(e) => setMaterialName(e.target.value)}
-              placeholder="e.g. Sand, Aggregates, Steel Coils, Cement Bags..."
-              className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold text-slate-900 focus:outline-none transition-all duration-200 shadow-sm"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Material Name</label>
+              <input
+                type="text"
+                value={materialName}
+                onChange={(e) => setMaterialName(e.target.value)}
+                placeholder="e.g. Sand, Aggregates, Steel..."
+                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold text-slate-900 focus:outline-none transition-all duration-200 shadow-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Ref No.</span>
+                <span className="text-[10px] text-slate-400 font-normal">Optional</span>
+              </label>
+              <input
+                type="text"
+                value={referenceNo}
+                onChange={(e) => setReferenceNo(e.target.value)}
+                placeholder="e.g. PO-88219, DO-4912, REF-102..."
+                className="h-11 w-full bg-[#F0F2F9] hover:bg-[#E4E7F4] border border-transparent focus:border-violet-600 focus:bg-white rounded-2xl px-4 text-xs font-semibold text-slate-900 focus:outline-none transition-all duration-200 shadow-sm font-mono"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

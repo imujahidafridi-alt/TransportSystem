@@ -43,6 +43,13 @@ export function initDatabase(): Database.Database {
     // Column already exists
   }
 
+  // Migration: Ensure reference_no column exists in transports
+  try {
+    dbInstance.exec('ALTER TABLE transports ADD COLUMN reference_no TEXT;');
+  } catch {
+    // Column already exists
+  }
+
   // Migration: Ensure driver_allowance column exists in transports
   try {
     dbInstance.exec('ALTER TABLE transports ADD COLUMN driver_allowance REAL DEFAULT 0;');

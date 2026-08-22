@@ -86,7 +86,7 @@ export function getTransactionReports(filter: ReportFilter): TransactionReportIt
 
   const sql = `
     SELECT 
-      t.id, t.transport_no as transportNo, t.date, t.transport_type as transportType,
+      t.id, t.transport_no as transportNo, t.reference_no as referenceNo, t.date, t.transport_type as transportType,
       t.material_name as materialName,
       t.from_location_id as fromLocationId, fl.name as fromLocationName,
       t.to_location_id as toLocationId, tl.name as toLocationName,

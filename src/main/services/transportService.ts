@@ -25,9 +25,9 @@ export function getAllTransports(search?: string, limit = 50, offset = 0): { ite
   const params: (string | number)[] = [];
 
   if (search && search.trim() !== '') {
-    whereClause = `WHERE t.transport_no LIKE ? OR t.material_name LIKE ? OR v.registration_number LIKE ? OR d.name LIKE ? OR fl.name LIKE ? OR tl.name LIKE ?`;
+    whereClause = `WHERE t.transport_no LIKE ? OR t.reference_no LIKE ? OR t.material_name LIKE ? OR v.registration_number LIKE ? OR d.name LIKE ? OR fl.name LIKE ? OR tl.name LIKE ?`;
     const s = `%${search.trim()}%`;
-    params.push(s, s, s, s, s, s);
+    params.push(s, s, s, s, s, s, s);
   }
 
   const countSql = `
@@ -44,7 +44,7 @@ export function getAllTransports(search?: string, limit = 50, offset = 0): { ite
 
   const dataSql = `
     SELECT 
-      t.id, t.transport_no as transportNo, t.date, t.transport_type as transportType,
+      t.id, t.transport_no as transportNo, t.reference_no as referenceNo, t.date, t.transport_type as transportType,
       t.material_name as materialName,
       t.from_location_id as fromLocationId, fl.name as fromLocationName,
       t.to_location_id as toLocationId, tl.name as toLocationName,
@@ -106,17 +106,18 @@ export function createTransport(data: Omit<Transport, 'id' | 'transportNo' | 'to
 
   const stmt = db.prepare(`
     INSERT INTO transports (
-      id, transport_no, date, transport_type, material_name, from_location_id, to_location_id,
+      id, transport_no, reference_no, date, transport_type, material_name, from_location_id, to_location_id,
       vehicle_id, driver_id, tons, rate_per_ton, fixed_price, total_amount, driver_allowance,
       status, notes, created_at, updated_at
     ) VALUES (
-      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
     )
   `);
 
   stmt.run(
     id,
     transportNo,
+    data.referenceNo ?? null,
     data.date,
     data.transportType,
     data.materialName ?? null,
@@ -164,13 +165,14 @@ export function updateTransport(id: string, data: Partial<Transport>): Transport
 
   const stmt = db.prepare(`
     UPDATE transports
-    SET date = ?, transport_type = ?, material_name = ?, from_location_id = ?, to_location_id = ?,
+    SET reference_no = ?, date = ?, transport_type = ?, material_name = ?, from_location_id = ?, to_location_id = ?,
         vehicle_id = ?, driver_id = ?, tons = ?, rate_per_ton = ?,
         fixed_price = ?, total_amount = ?, driver_allowance = ?, status = ?, notes = ?, updated_at = ?
     WHERE id = ?
   `);
 
   stmt.run(
+    data.referenceNo !== undefined ? data.referenceNo : existing.referenceNo ?? null,
     data.date ?? existing.date,
     type,
     data.materialName !== undefined ? data.materialName : existing.materialName ?? null,
@@ -211,7 +213,7 @@ export function getTransportById(id: string): Transport | null {
   const db = getDb();
   const sql = `
     SELECT 
-      t.id, t.transport_no as transportNo, t.date, t.transport_type as transportType,
+      t.id, t.transport_no as transportNo, t.reference_no as referenceNo, t.date, t.transport_type as transportType,
       t.material_name as materialName,
       t.from_location_id as fromLocationId, fl.name as fromLocationName,
       t.to_location_id as toLocationId, tl.name as toLocationName,

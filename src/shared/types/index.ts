@@ -46,6 +46,7 @@ export interface Vehicle {
 export interface Transport {
   id: string;
   transportNo: string;
+  referenceNo?: string;
   date: string;
   transportType: TransportType;
   materialName?: string;

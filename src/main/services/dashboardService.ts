@@ -109,6 +109,7 @@ export function getDashboardSummary(
   const recentTransports: Transport[] = rows.map((r) => ({
     id: r.id,
     transportNo: r.transport_no,
+    referenceNo: r.reference_no,
     date: r.date,
     transportType: r.transport_type,
     materialName: r.material_name,
